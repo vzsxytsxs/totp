@@ -310,14 +310,12 @@ fun ExportQrScreen(uris: List<String>, note: String, onDone: () -> Unit) {
     val bitmap = remember(index) { QrCodes.encode(uris[index]).asImageBitmap() }
     // Full brightness makes the code easier to scan from another device.
     val activity = LocalContext.current as? Activity
-    DisposableEffect(Unit) {
+    DisposableEffect(activity) {
         val window = activity?.window
-        val previous = window?.attributes?.screenBrightness
-        window?.attributes = window?.attributes?.apply { screenBrightness = 1f }
+        val previous = window?.attributes?.screenBrightness ?: WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        if (window != null) window.attributes = window.attributes.apply { screenBrightness = 1f }
         onDispose {
-            window?.attributes = window?.attributes?.apply {
-                screenBrightness = previous ?: WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
-            }
+            if (window != null) window.attributes = window.attributes.apply { screenBrightness = previous }
         }
     }
     Scaffold(
