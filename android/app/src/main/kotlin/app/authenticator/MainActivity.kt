@@ -14,6 +14,8 @@ import androidx.activity.viewModels
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
 import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -22,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import app.authenticator.ui.AuthenticatorTheme
@@ -42,19 +45,19 @@ class MainActivity : FragmentActivity() {
     private val vm: AppViewModel by viewModels()
     private var authenticating = false
 
-    private val pickImage = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         vm.suppressLock = false
         if (uri != null) vm.importImage(uri)
     }
-    private val createBackup = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+    private val createBackupLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         vm.suppressLock = false
         if (uri != null) vm.writeBackup(uri) else vm.pendingExportPassword = null
     }
-    private val openBackup = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    private val openBackupLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         vm.suppressLock = false
         if (uri != null) vm.readBackup(uri)
     }
-    private val cameraPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+    private val cameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         vm.suppressLock = false
         if (granted) {
             vm.scanStatus = null
@@ -90,7 +93,8 @@ class MainActivity : FragmentActivity() {
 
     override fun onStop() {
         super.onStop()
-        vm.onStop()
+        // Rotating the screen recreates the activity; that is not leaving the app.
+        if (!isChangingConfigurations) vm.onStop()
     }
 
     private fun handleLink(intent: Intent?) {
@@ -149,18 +153,18 @@ class MainActivity : FragmentActivity() {
             vm.screen = Screen.Scanner
         } else {
             vm.suppressLock = true
-            cameraPermission.launch(Manifest.permission.CAMERA)
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 
     private fun pickImage() {
         vm.suppressLock = true
-        pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        pickImageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
     private fun openBackupFile() {
         vm.suppressLock = true
-        openBackup.launch(arrayOf("application/json", "application/octet-stream", "text/plain", "*/*"))
+        openBackupLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain", "*/*"))
     }
 
     @Composable
@@ -178,8 +182,9 @@ class MainActivity : FragmentActivity() {
 
         val error = vm.vaultError
         when {
-            vm.locked -> LockScreen(onUnlock = { authenticate("Unlock Authenticator") { vm.unlocked() } })
+            vm.locked -> LockScreen(snackbar, onUnlock = { authenticate("Unlock Authenticator") { vm.unlocked() } })
             error != null -> VaultErrorScreen(error, onReset = vm::resetVault)
+            !vm.loaded -> Box(Modifier.fillMaxSize())
             else -> Screens(snackbar, onEdit = { editing = it })
         }
 
@@ -211,7 +216,7 @@ class MainActivity : FragmentActivity() {
                 lockAvailable = vm.lockActive,
                 snackbar = snackbar,
                 onCopy = { entry ->
-                    Clipboard.copy(this, entry.account.codeAt(Otp.nowSeconds()), vm.settings.clearClipboard)
+                    Clipboard.copy(this@MainActivity, entry.account.codeAt(Otp.nowSeconds()), vm.settings.clearClipboard)
                     if (!Clipboard.systemShowsConfirmation) vm.message("Code copied.")
                 },
                 onNextHotp = { vm.nextHotp(it.id) },
@@ -261,7 +266,7 @@ class MainActivity : FragmentActivity() {
                     authenticate("Create backup") {
                         vm.pendingExportPassword = password
                         vm.suppressLock = true
-                        createBackup.launch("authenticator-backup-${java.time.LocalDate.now()}.json")
+                        createBackupLauncher.launch("authenticator-backup-${java.time.LocalDate.now()}.json")
                     }
                 },
                 onBack = goHome,

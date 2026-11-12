@@ -71,10 +71,17 @@ import app.authenticator.QrCodes
 import app.authenticator.core.Backup
 
 @Composable
-fun LockScreen(onUnlock: () -> Unit) {
+fun LockScreen(snackbar: SnackbarHostState, onUnlock: () -> Unit) {
     LaunchedEffect(Unit) { onUnlock() }
+    Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
+        LockContent(Modifier.padding(padding), onUnlock)
+    }
+}
+
+@Composable
+private fun LockContent(modifier: Modifier, onUnlock: () -> Unit) {
     Column(
-        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).padding(32.dp),
+        modifier.fillMaxSize().padding(32.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
