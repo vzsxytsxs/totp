@@ -6,6 +6,11 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      release:
+        description: "Publish a GitHub release with this tag (for example v1.0.0). Leave empty to only build."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -124,7 +129,7 @@ jobs:
 
   release:
     name: GitHub release
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.release != ''
     needs: [windows, android]
     runs-on: ubuntu-latest
     permissions:
@@ -159,6 +164,10 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          # Tag pushes use their own tag; manual runs create the tag on this commit.
+          tag_name: ${{ inputs.release || github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          name: Authenticator ${{ inputs.release || github.ref_name }}
           body_path: notes.md
           files: |
             dist/Authenticator.exe
