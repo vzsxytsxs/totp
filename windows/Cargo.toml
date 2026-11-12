@@ -1,0 +1,65 @@
+[package]
+name = "authenticator"
+version = "1.0.0"
+edition = "2024"
+description = "Offline TOTP/HOTP authenticator"
+license = "MIT"
+publish = false
+
+[lib]
+name = "authenticator"
+path = "src/lib.rs"
+
+[[bin]]
+name = "authenticator"
+path = "src/main.rs"
+
+[dependencies]
+slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "software-renderer-systemfonts", "software-renderer-path", "accessibility", "raw-window-handle-06"] }
+raw-window-handle = "0.6"
+aes-gcm = "0.11"
+argon2 = "0.6"
+hmac = "0.13"
+sha1 = "0.11"
+sha2 = "0.11"
+getrandom = "0.4"
+zeroize = { version = "1.9", features = ["derive"] }
+unicode-normalization = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.23"
+qrcode = { version = "0.14", default-features = false }
+rqrr = "0.11"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp", "gif", "webp"] }
+arboard = "3.7"
+
+[target.'cfg(windows)'.dependencies]
+rfd = { version = "0.18", default-features = false }
+windows-sys = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_Security_Cryptography",
+  "Win32_System_SystemInformation",
+  "Win32_System_Threading",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+[build-dependencies]
+slint-build = "1.18"
+winresource = "0.1"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+# Argon2 is unusably slow without optimisations, even in debug builds.
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3
+[profile.dev.package.rqrr]
+opt-level = 3

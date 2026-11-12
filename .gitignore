@@ -1,0 +1,22 @@
+# Rust
+windows/target/
+
+# Android / Gradle
+android/.gradle/
+android/build/
+android/*/build/
+android/local.properties
+android/keystore.properties
+android/*.jks
+android/*.keystore
+android/.idea/
+android/.kotlin/
+*.iml
+
+# Build output of the helper scripts
+dist/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
