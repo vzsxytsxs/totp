@@ -2,15 +2,16 @@
 windows/target/
 
 # Android / Gradle
-android/.gradle/
+**/.gradle/
+**/.kotlin/
 android/build/
 android/*/build/
 android/local.properties
 android/keystore.properties
 android/*.jks
+android/*.base64.txt
 android/*.keystore
 android/.idea/
-android/.kotlin/
 *.iml
 
 # Build output of the helper scripts
