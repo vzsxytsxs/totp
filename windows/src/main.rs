@@ -253,11 +253,9 @@ fn report(ui: &AppWindow, error: bool, text: impl Into<String>) {
     let text = text.into();
     match ui.get_page() {
         Page::Add | Page::Export | Page::Settings => {
-            // The status line sits at the top of a scrollable page; errors
-            // also get a toast so they are seen wherever the user scrolled.
-            if error {
-                toast(ui, text.lines().next().unwrap_or_default());
-            }
+            // The status line sits at the top of a scrollable page; a toast
+            // makes sure the message is seen wherever the user scrolled.
+            toast(ui, text.lines().next().unwrap_or_default());
             ui.set_status_error(error);
             ui.set_status_text(text.into());
         }

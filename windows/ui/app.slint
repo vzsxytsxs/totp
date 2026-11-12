@@ -1,4 +1,4 @@
-import { Button, LineEdit, ComboBox, CheckBox, Switch, ScrollView, ListView, Palette, Spinner } from "std-widgets.slint";
+import { AboutSlint, Button, LineEdit, ComboBox, CheckBox, Switch, ScrollView, ListView, Palette, Spinner } from "std-widgets.slint";
 
 export enum Page { setup, lock, list, add, export, export-qr, settings }
 
@@ -627,6 +627,12 @@ component ExportPage inherits Rectangle {
     callback show-qr;
     callback save-backup(string, string);
 
+    function submit-backup() {
+        root.save-backup(pw.text, pw2.text);
+        pw.text = "";
+        pw2.text = "";
+    }
+
     VerticalLayout {
         PageHeader {
             title: "Export accounts";
@@ -669,12 +675,12 @@ component ExportPage inherits Rectangle {
                     pw2 := LineEdit {
                         input-type: password;
                         placeholder-text: "Repeat password";
-                        accepted => { root.save-backup(pw.text, pw2.text); }
+                        accepted => { root.submit-backup(); }
                     }
                     Button {
                         text: "Save backup file…";
                         enabled: root.total > 0;
-                        clicked => { root.save-backup(pw.text, pw2.text); }
+                        clicked => { root.submit-backup(); }
                     }
                 }
             }
@@ -773,6 +779,13 @@ component SettingsPage inherits Rectangle {
     callback changed;
     callback change-pin(string, string, string);
 
+    function submit-pin-change() {
+        root.change-pin(current.text, new-pin.text, confirm.text);
+        current.text = "";
+        new-pin.text = "";
+        confirm.text = "";
+    }
+
     VerticalLayout {
         PageHeader {
             title: "Settings";
@@ -813,11 +826,11 @@ component SettingsPage inherits Rectangle {
                     confirm := LineEdit {
                         input-type: password;
                         placeholder-text: "Repeat new PIN or password";
-                        accepted => { root.change-pin(current.text, new-pin.text, confirm.text); }
+                        accepted => { root.submit-pin-change(); }
                     }
                     Button {
                         text: "Change PIN";
-                        clicked => { root.change-pin(current.text, new-pin.text, confirm.text); }
+                        clicked => { root.submit-pin-change(); }
                     }
                 }
                 Card {
@@ -825,6 +838,7 @@ component SettingsPage inherits Rectangle {
                     Hint { text: "Authenticator " + root.version + ". Works completely offline: nothing is sent over the internet."; }
                     Hint { text: "Data file (encrypted): " + root.data-path; }
                     Hint { text: "Keyboard: Ctrl+N add account, Ctrl+V paste screenshot, Ctrl+L lock, Esc go back."; }
+                    AboutSlint { }
                 }
             }
         }
