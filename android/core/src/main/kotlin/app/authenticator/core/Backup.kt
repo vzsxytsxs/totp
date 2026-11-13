@@ -36,7 +36,7 @@ object Backup {
 
     class BackupException(val failure: Failure, message: String) : Exception(message)
 
-    class Restored(val accounts: List<Account>, val invalidEntries: Int)
+    class Restored(val accounts: List<Account>, val logins: List<Login>, val invalidEntries: Int)
 
     private val random = SecureRandom()
 
@@ -62,13 +62,22 @@ object Backup {
     private fun aad() = "$FORMAT:v$VERSION".toByteArray(Charsets.UTF_8)
 
     /** Returns the backup file contents (JSON text). */
-    fun create(accounts: List<Account>, password: String, params: KdfParams = KdfParams.DEFAULT): String {
+    fun create(
+        accounts: List<Account>,
+        password: String,
+        params: KdfParams = KdfParams.DEFAULT,
+        logins: List<Login> = emptyList(),
+    ): String {
         val salt = ByteArray(SALT_LENGTH).also(random::nextBytes)
         val nonce = ByteArray(NONCE_LENGTH).also(random::nextBytes)
         val key = deriveKey(password, salt, params)
         val entries = JSONArray()
         accounts.forEach { entries.put(it.toJson()) }
-        val plaintext = JSONObject().put("version", 1).put("entries", entries).toString().toByteArray(Charsets.UTF_8)
+        // Version 1 payloads gained `logins` and account ids in app version 2.0.
+        // Both are optional, so older apps still read the accounts.
+        val payload = JSONObject().put("version", 1).put("entries", entries)
+        if (logins.isNotEmpty()) payload.put("logins", JSONArray().also { array -> logins.forEach { array.put(it.toJson()) } })
+        val plaintext = payload.toString().toByteArray(Charsets.UTF_8)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(128, nonce))
         cipher.updateAAD(aad())
@@ -139,7 +148,15 @@ object Backup {
                 val account = runCatching { Account.fromJson(entries.getJSONObject(i)) }.getOrNull()
                 if (account != null && account.validationError() == null) accounts.add(account) else invalid++
             }
-            return Restored(accounts, invalid)
+            val loginList = mutableListOf<Login>()
+            val loginsJson = payload.optJSONArray("logins")
+            if (loginsJson != null) {
+                for (i in 0 until loginsJson.length()) {
+                    val login = runCatching { Login.fromJson(loginsJson.getJSONObject(i)) }.getOrNull()
+                    if (login != null && login.validationError() == null) loginList.add(login) else invalid++
+                }
+            }
+            return Restored(accounts, loginList, invalid)
         } catch (e: JSONException) {
             throw corrupt(e.message ?: "invalid contents")
         } finally {

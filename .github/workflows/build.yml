@@ -36,6 +36,10 @@ jobs:
           workspaces: windows
 
       - name: Tests
+        # Includes the browser integration tests that use the real pipe,
+        # registry and folders of the runner's user.
+        env:
+          AUTH_TEST_SYSTEM: "1"
         run: cargo test --release --locked
 
       - name: Build
@@ -145,9 +149,18 @@ jobs:
           SIGNED: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
         run: |
           cat > notes.md <<'EOF'
+          ## What's new in 2.0
+
+          - **Passwords**: save website logins next to your 2FA codes, with a password generator and a link from each login to its 2FA code. On Windows you can also import a CSV exported from your browser.
+          - **Browser extension** (Windows): fills in the user name, password and 2FA code on websites. It talks only to the app on the same PC and only while the app is unlocked; when it is locked, the app comes up and asks for your PIN. Shortcut: Ctrl+Shift+U.
+          - **New Windows window** in the style of a desktop password manager (menus, list with details, keyboard shortcuts).
+          - **Windows notification area**: closing the window keeps the app running there; optional start with Windows; locks when Windows locks.
+          - **Export a single code** as a QR code, and **choose** which codes and passwords go into an export or backup. Backups now include passwords, and restoring merges them with what you already have.
+
           ## Downloads
 
           - **Windows** (10/11): `Authenticator.exe`. No installer: just open it. SmartScreen may warn because the file is not code-signed: "More info" → "Run anyway".
+            The browser extension (Thorium, Chrome, Edge, Brave…) is inside it: in the app, Tools → Browser integration.
           - **Android** (8.0+): `Authenticator.apk`. Allow installing unknown apps for the browser or file manager that opens it.
 
           Both apps work fully offline and read each other's encrypted backup files. See the README for importing from Google Authenticator.

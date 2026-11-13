@@ -42,6 +42,8 @@ data class Account(
     val digits: Int = 6,
     val period: Int = 30,
     val counter: Long = 0,
+    /** Stable random id; empty in backups written before version 2.0. */
+    val id: String = "",
 ) {
     /** Returns an error message, or null when the parameters are usable. */
     fun validationError(): String? = when {
@@ -83,7 +85,11 @@ data class Account(
     fun sameAs(other: Account): Boolean =
         secret.contentEquals(other.secret) && type == other.type && issuer == other.issuer && name == other.name
 
+    /** Standard `otpauth://` link (QR code for a single account). */
+    fun toOtpAuth(): String = OtpAuth.format(this)
+
     fun toJson(): JSONObject = JSONObject()
+        .also { if (id.isNotEmpty()) it.put("id", id) }
         .put("type", type.jsonName)
         .put("issuer", issuer)
         .put("name", name)
@@ -96,13 +102,13 @@ data class Account(
     override fun equals(other: Any?): Boolean =
         other is Account && type == other.type && issuer == other.issuer && name == other.name &&
             secret.contentEquals(other.secret) && algorithm == other.algorithm && digits == other.digits &&
-            period == other.period && counter == other.counter
+            period == other.period && counter == other.counter && id == other.id
 
     override fun hashCode(): Int =
-        listOf(type, issuer, name, secret.contentHashCode(), algorithm, digits, period, counter).hashCode()
+        listOf(id, type, issuer, name, secret.contentHashCode(), algorithm, digits, period, counter).hashCode()
 
     override fun toString(): String =
-        "Account(type=$type, issuer=$issuer, name=$name, secret=<redacted>, algorithm=$algorithm, " +
+        "Account(id=$id, type=$type, issuer=$issuer, name=$name, secret=<redacted>, algorithm=$algorithm, " +
             "digits=$digits, period=$period, counter=$counter)"
 
     companion object {
@@ -116,6 +122,7 @@ data class Account(
             digits = json.optInt("digits", 6),
             period = json.optInt("period", 30),
             counter = json.optLong("counter", 0),
+            id = json.optString("id", ""),
         )
     }
 }

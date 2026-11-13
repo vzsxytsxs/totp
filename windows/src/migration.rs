@@ -147,10 +147,10 @@ fn decode_otp_parameters(buf: &[u8]) -> Result<Result<Account, String>, String> 
     }
     // Google puts "Issuer:name" in the name field when an issuer exists.
     let mut name = name.trim().to_string();
-    if !issuer.is_empty() {
-        if let Some(stripped) = name.strip_prefix(&format!("{issuer}:")) {
-            name = stripped.trim().to_string();
-        }
+    if !issuer.is_empty()
+        && let Some(stripped) = name.strip_prefix(&format!("{issuer}:"))
+    {
+        name = stripped.trim().to_string();
     }
     let label = if issuer.is_empty() { name.clone() } else { format!("{issuer} ({name})") };
     let algorithm = match algorithm {
@@ -169,6 +169,7 @@ fn decode_otp_parameters(buf: &[u8]) -> Result<Result<Account, String>, String> 
         _ => OtpKind::Totp,
     };
     let account = Account {
+        id: String::new(),
         kind,
         issuer: issuer.trim().to_string(),
         name,
@@ -292,12 +293,13 @@ mod tests {
 
     fn account(i: usize, kind: OtpKind) -> Account {
         Account {
+            id: String::new(),
             kind,
             issuer: format!("Issuer {i}"),
             name: format!("user{i}@example.com"),
             secret: Secret::new((0..20).map(|b| (b * 7 + i) as u8).collect()),
-            algorithm: if i % 3 == 0 { Algorithm::Sha256 } else { Algorithm::Sha1 },
-            digits: if i % 2 == 0 { 8 } else { 6 },
+            algorithm: if i.is_multiple_of(3) { Algorithm::Sha256 } else { Algorithm::Sha1 },
+            digits: if i.is_multiple_of(2) { 8 } else { 6 },
             period: 30,
             counter: if kind == OtpKind::Hotp { i as u64 } else { 0 },
         }

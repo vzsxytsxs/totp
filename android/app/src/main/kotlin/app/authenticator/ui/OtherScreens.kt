@@ -148,6 +148,7 @@ fun EditDialog(
     onSave: (String, String) -> Unit,
     onDelete: () -> Unit,
     onMove: (Int) -> Unit,
+    onShowQr: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     var issuer by rememberSaveable { mutableStateOf(entry.account.issuer) }
@@ -179,6 +180,11 @@ fun EditDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { onMove(-1) }) { Text("Move up") }
                     OutlinedButton(onClick = { onMove(1) }) { Text("Move down") }
+                }
+                TextButton(onClick = onShowQr) {
+                    Icon(AppIcons.QrCode, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Text("Show QR code (export this account)")
                 }
                 TextButton(onClick = { confirmDelete = true }) {
                     Text("Delete account…", color = MaterialTheme.colorScheme.error)
@@ -219,8 +225,12 @@ fun BackupPasswordDialog(onRestore: (String) -> Unit, onDismiss: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExportScreen(
-    count: Int,
+    accounts: Int,
+    accountsTotal: Int,
+    logins: Int,
+    loginsTotal: Int,
     snackbar: SnackbarHostState,
+    onChoose: () -> Unit,
     onShowQr: () -> Unit,
     onSaveBackup: (String) -> Unit,
     onBack: () -> Unit,
@@ -243,9 +253,29 @@ fun ExportScreen(
         ) {
             Card {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("What to export", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        buildString {
+                            append(if (accounts == accountsTotal) "All $accountsTotal 2FA codes" else "$accounts of $accountsTotal 2FA codes")
+                            if (loginsTotal > 0) {
+                                append(if (logins == loginsTotal) ", all $loginsTotal passwords" else ", $logins of $loginsTotal passwords")
+                            }
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        "To export a single 2FA code, long-press it in the list and choose \"Show QR code\".",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedButton(onClick = onChoose) { Text("Choose…") }
+                }
+            }
+            Card {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("QR codes (Google Authenticator format)", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Scan them with Google Authenticator, this app on another phone, or most other authenticator apps.",
+                        "Scan them with Google Authenticator, this app on another phone, or most other authenticator apps. Only 2FA codes: passwords go only in the backup file.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(
@@ -253,14 +283,14 @@ fun ExportScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
-                    Button(onClick = onShowQr, enabled = count > 0) { Text("Show QR codes") }
+                    Button(onClick = onShowQr, enabled = accounts > 0) { Text("Show QR codes") }
                 }
             }
             Card {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Encrypted backup file", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Saves all accounts in a password-protected file (Argon2id + AES-256). Restore it with this app on Windows or on another phone. Without the password the file cannot be opened.",
+                        "Saves the chosen 2FA codes and passwords in a password-protected file (Argon2id + AES-256). Restore it with this app on Windows or on another phone. Without the password the file cannot be opened.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     OutlinedTextField(
@@ -283,7 +313,7 @@ fun ExportScreen(
                     )
                     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     FilledTonalButton(
-                        enabled = count > 0,
+                        enabled = accounts + logins > 0,
                         onClick = {
                             error = when {
                                 password.length < Backup.MIN_PASSWORD_LENGTH -> "Use at least ${Backup.MIN_PASSWORD_LENGTH} characters."
@@ -305,7 +335,7 @@ fun ExportScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExportQrScreen(uris: List<String>, note: String, onDone: () -> Unit) {
+fun ExportQrScreen(uris: List<String>, note: String, single: Boolean, onDone: () -> Unit) {
     var index by rememberSaveable { mutableIntStateOf(0) }
     val bitmap = remember(index) { QrCodes.encode(uris[index]).asImageBitmap() }
     // Full brightness makes the code easier to scan from another device.
@@ -332,7 +362,11 @@ fun ExportQrScreen(uris: List<String>, note: String, onDone: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                "In Google Authenticator: Transfer accounts → Import accounts. In this app: + → Scan QR code.",
+                if (single) {
+                    "Scan it with any authenticator app. In Google Authenticator: + → Scan a QR code. In this app: + → Scan QR code."
+                } else {
+                    "In Google Authenticator: Transfer accounts → Import accounts. In this app: + → Scan QR code."
+                },
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -352,7 +386,7 @@ fun ExportQrScreen(uris: List<String>, note: String, onDone: () -> Unit) {
                     modifier = Modifier.fillMaxSize(),
                 )
             }
-            Text("Code ${index + 1} of ${uris.size}", style = MaterialTheme.typography.titleMedium)
+            if (uris.size > 1) Text("Code ${index + 1} of ${uris.size}", style = MaterialTheme.typography.titleMedium)
             Text(note, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = { index-- }, enabled = index > 0) { Text("Previous") }
@@ -415,8 +449,8 @@ fun SettingsScreen(
                         checked = settings.blockScreenshots,
                     ) { onChange(settings.copy(blockScreenshots = it)) }
                     SettingSwitch(
-                        title = "Clear copied codes",
-                        subtitle = "Removes the code from the clipboard after 30 seconds",
+                        title = "Clear copied codes and passwords",
+                        subtitle = "Removes them from the clipboard after 30 seconds",
                         checked = settings.clearClipboard,
                     ) { onChange(settings.copy(clearClipboard = it)) }
                 }
@@ -426,7 +460,7 @@ fun SettingsScreen(
                     Text("About", style = MaterialTheme.typography.titleMedium)
                     Text("Authenticator ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        "This app has no internet permission: your codes never leave the phone unless you export them. They are stored encrypted with a key kept in the Android Keystore.",
+                        "This app has no internet permission: your codes and passwords never leave the phone unless you export them. They are stored encrypted with a key kept in the Android Keystore.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

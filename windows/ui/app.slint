@@ -1,99 +1,328 @@
-import { AboutSlint, Button, LineEdit, ComboBox, CheckBox, Switch, ScrollView, ListView, Palette, Spinner } from "std-widgets.slint";
+import { AboutSlint, Button, LineEdit, TextEdit, ComboBox, CheckBox, Switch, ScrollView, ListView, Palette, Spinner, SpinBox } from "std-widgets.slint";
 
-export enum Page { setup, lock, list, add, export, export-qr, settings }
+export enum Page { setup, lock, main }
+export enum Section { codes, passwords }
+export enum Dialog { none, add-code, edit-code, edit-login, export, qr, restore, settings, generator, browser, pair, confirm-access, pin, about }
 
-export struct EntryRow {
+export struct CodeRow {
     id: int,
+    initial: string,
     title: string,
-    subtitle: string,
-    issuer: string,
-    name: string,
+    account: string,
     code: string,
     remaining: int,
     progress: float,
     hotp: bool,
     warn: bool,
+    info: string,
+    used-by: string,
+}
+
+export struct LoginRow {
+    id: int,
+    initial: string,
+    title: string,
+    username: string,
+    site: string,
+    url: string,
+    notes: string,
+    modified: string,
+    otp-title: string,
+    otp-code: string,
+    otp-remaining: int,
+    otp-warn: bool,
+}
+
+export struct PickRow {
+    id: int,
+    title: string,
+    subtitle: string,
+    checked: bool,
+}
+
+export struct BrowserRow {
+    id: string,
+    name: string,
+    detail: string,
 }
 
 // Material Design icons (Apache License 2.0).
 global Icons {
     out property <string> add: "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z";
-    out property <string> back: "M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z";
-    out property <string> more: "M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z";
+    out property <string> edit: "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z";
+    out property <string> delete: "M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z";
+    out property <string> copy: "M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z";
+    out property <string> person: "M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z";
+    out property <string> key: "M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z";
     out property <string> lock: "M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z";
-    out property <string> settings: "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z";
     out property <string> refresh: "M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z";
     out property <string> export: "M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z";
     out property <string> shield: "M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z";
+    out property <string> timer: "M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z";
+    out property <string> qr: "M3 11h8V3H3v8zm2-6h4v4H5V5zM3 21h8v-8H3v8zm2-6h4v4H5v-4zM13 3v8h8V3h-8zm6 6h-4V5h4v4zM13 13h2v2h-2zM15 15h2v2h-2zM13 17h2v2h-2zM17 17h2v2h-2zM19 19h2v2h-2zM15 19h2v2h-2zM17 13h2v2h-2zM19 15h2v2h-2z";
+    out property <string> eye: "M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z";
+    out property <string> eye-off: "M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z";
+    out property <string> dice: "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM7.5 18c-.83 0-1.5-.67-1.5-1.5S6.67 15 7.5 15s1.5.67 1.5 1.5S8.33 18 7.5 18zm0-9C6.67 9 6 8.33 6 7.5S6.67 6 7.5 6 9 6.67 9 7.5 8.33 9 7.5 9zm4.5 4.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4.5 4.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm0-9c-.83 0-1.5-.67-1.5-1.5S15.67 6 16.5 6s1.5.67 1.5 1.5S17.33 9 16.5 9z";
+    out property <string> open: "M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z";
     out property <string> search: "M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z";
+    out property <string> extension: "M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z";
+    out property <string> link: "M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z";
 }
 
 global Theme {
+    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
+    // Same blue as the Android app.
+    out property <color> brand: dark ? #b0c6ff : #2563eb;
+    out property <color> brand-soft: dark ? #b0c6ff26 : #2563eb1f;
     out property <color> dim: Palette.foreground.with-alpha(0.62);
-    out property <color> danger: Palette.color-scheme == ColorScheme.dark ? #ff99a4 : #c42b1c;
-    out property <color> success: Palette.color-scheme == ColorScheme.dark ? #6ccb5f : #0f7b0f;
-    out property <color> warn: Palette.color-scheme == ColorScheme.dark ? #fce100 : #9d5d00;
-    out property <color> code: Palette.color-scheme == ColorScheme.dark ? #99ebff : #003e92;
-    out property <color> card: Palette.color-scheme == ColorScheme.dark ? #ffffff0d : #00000008;
+    out property <color> faint: Palette.foreground.with-alpha(0.08);
+    out property <color> danger: dark ? #ff99a4 : #c42b1c;
+    out property <color> success: dark ? #6ccb5f : #0f7b0f;
+    out property <color> warn: dark ? #fce100 : #9d5d00;
+    out property <color> code: dark ? #c9d8ff : #0b3fb3;
+    out property <color> panel: dark ? #ffffff08 : #00000006;
+    out property <color> sidebar: dark ? #ffffff0a : #0000000a;
+}
+
+export global App {
+    in-out property <Page> page: Page.lock;
+    in-out property <Section> section: Section.codes;
+    in-out property <Dialog> dialog: Dialog.none;
+
+    in property <[CodeRow]> codes;
+    in property <[LoginRow]> logins;
+    in property <int> code-total;
+    in property <int> login-total;
+    in-out property <int> code-index: -1;
+    in-out property <int> login-index: -1;
+    in-out property <string> search;
+
+    in property <bool> busy;
+    in property <string> busy-text;
+    in-out property <string> lock-error;
+    in property <string> lock-hint;
+    in property <string> toast-text;
+    in property <bool> toast-visible;
+    in property <bool> toast-error;
+    in property <string> status-right;
+    in property <string> version;
+    in property <string> data-path;
+    in property <bool> can-scan-screen: true;
+    in-out property <string> dialog-error;
+    in-out property <string> dialog-info;
+    // Edit dialogs open on their "really delete?" step.
+    in-out property <bool> confirm-delete;
+
+    // Edit 2FA code
+    in-out property <int> edit-code-id: -1;
+    in-out property <string> edit-issuer;
+    in-out property <string> edit-name;
+    in property <string> edit-code-info;
+
+    // Add / edit login
+    in-out property <int> login-edit-id: -1;
+    in-out property <string> login-title;
+    in-out property <string> login-username;
+    in-out property <string> login-password;
+    in-out property <string> login-url;
+    in-out property <string> login-notes;
+    in-out property <int> login-otp-index;
+    in property <[string]> otp-choices;
+    in-out property <int> revealed-id: -1;
+    in property <string> revealed-password;
+
+    // Password generator
+    in-out property <int> gen-length: 20;
+    in-out property <bool> gen-lower: true;
+    in-out property <bool> gen-upper: true;
+    in-out property <bool> gen-digits: true;
+    in-out property <bool> gen-symbols: true;
+    in-out property <bool> gen-similar;
+    in-out property <string> gen-result;
+
+    // Export
+    in property <[PickRow]> export-codes;
+    in property <[PickRow]> export-logins;
+    in property <int> export-code-count;
+    in property <int> export-login-count;
+
+    // QR codes on screen
+    in property <string> qr-title;
+    in property <[image]> qr-images;
+    in-out property <int> qr-index;
+    in property <string> qr-note;
+    in property <int> qr-account-id: -1;
+
+    // PIN confirmation before showing secrets
+    in property <string> pin-reason;
+
+    // Settings
+    in-out property <int> auto-lock-index;
+    in-out property <int> clipboard-index;
+    in-out property <bool> hide-from-capture;
+    in-out property <bool> lock-on-session-lock;
+    in-out property <bool> close-to-tray;
+    in-out property <bool> start-with-windows;
+    in-out property <bool> confirm-browser-access;
+    in property <bool> tray-supported;
+
+    // Browser integration
+    in-out property <bool> browser-enabled;
+    in property <string> browser-folder;
+    in property <string> browser-status;
+    in property <bool> browser-status-error;
+    in property <[BrowserRow]> browser-clients;
+    in property <string> pair-name;
+    in property <string> pair-code;
+    in property <string> access-text;
+
+    callback create-pin(string, string);
+    callback unlock(string);
+    callback reset-all(string);
+    callback lock();
+    callback quit();
+    callback hide-window();
+    callback search-changed(string);
+    callback section-changed();
+    callback selection-changed();
+
+    callback copy-code(int);
+    callback next-hotp(int);
+    callback edit-code(int);
+    callback save-code();
+    callback ask-delete-code(int);
+    callback delete-code(int);
+    callback show-code-qr(int);
+    callback copy-secret(int);
+    callback paste-image();
+    callback scan-screen();
+    callback open-image();
+    callback add-manual(string, string, string, int, int, int, string);
+    callback add-link(string);
+
+    callback new-login();
+    callback edit-login(int);
+    callback save-login();
+    callback ask-delete-login(int);
+    callback delete-login(int);
+    callback copy-username(int);
+    callback copy-password(int);
+    callback copy-login-code(int);
+    callback open-url(int);
+    callback reveal-password(int);
+    callback fill-generated();
+    callback generator-changed();
+    callback copy-generated();
+    callback import-csv();
+
+    callback open-export();
+    callback toggle-pick(bool, int);
+    callback pick-all(bool, bool);
+    callback export-qr();
+    callback export-backup(string, string);
+    callback restore-backup();
+    callback restore-password(string);
+    callback close-dialog();
+    callback pin-entered(string);
+
+    callback open-settings();
+    callback settings-changed();
+    callback start-with-windows-changed(bool);
+    callback change-pin(string, string, string);
+
+    callback open-browser();
+    callback browser-toggled(bool);
+    callback browser-open-folder();
+    callback browser-copy-path();
+    callback browser-remove(string);
+    callback pair-answer(bool);
+    callback access-answer(bool);
+}
+
+// ------------------------------------------------------------------ small parts
+
+component Icon inherits Path {
+    in property <string> icon;
+    in property <length> size: 18px;
+    commands: icon;
+    viewbox-width: 24;
+    viewbox-height: 24;
+    width: size;
+    height: size;
+    fill: Palette.foreground;
 }
 
 component IconButton inherits Rectangle {
     in property <string> icon;
     in property <string> label;
-    in property <color> icon-color: Palette.foreground;
-    in property <length> icon-size: 20px;
+    in property <bool> enabled: true;
+    in property <length> icon-size: 18px;
     callback clicked;
-    width: 36px;
-    height: 36px;
-    border-radius: 6px;
-    background: touch.pressed ? Palette.foreground.with-alpha(0.14) : touch.has-hover ? Palette.foreground.with-alpha(0.07) : transparent;
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    background: !enabled ? transparent : touch.pressed ? Palette.foreground.with-alpha(0.14) : touch.has-hover ? Palette.foreground.with-alpha(0.07) : transparent;
     accessible-role: button;
     accessible-label: label;
-    accessible-action-default => { root.clicked(); }
-
-    Path {
-        commands: root.icon;
-        fill: root.icon-color;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        width: root.icon-size;
-        height: root.icon-size;
+    accessible-action-default => { if (root.enabled) { root.clicked(); } }
+    Icon {
+        icon: root.icon;
+        size: root.icon-size;
+        fill: root.enabled ? Palette.foreground.with-alpha(0.85) : Palette.foreground.with-alpha(0.3);
     }
-
     touch := TouchArea {
+        enabled: root.enabled;
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
     }
 }
 
-component LinkText inherits Text {
+// Toolbar button: icon above a short label, like KeePassXC.
+component ToolButton inherits Rectangle {
+    in property <string> icon;
+    in property <string> text;
+    in property <bool> enabled: true;
     callback clicked;
-    color: touch.has-hover ? Palette.accent-background.brighter(0.2) : Palette.accent-background;
-    font-size: 13px;
+    width: max(58px, label.preferred-width + 16px);
+    height: 48px;
+    border-radius: 4px;
+    background: !enabled ? transparent : touch.pressed ? Palette.foreground.with-alpha(0.14) : touch.has-hover ? Palette.foreground.with-alpha(0.07) : transparent;
     accessible-role: button;
-    accessible-action-default => { root.clicked(); }
+    accessible-label: text;
+    accessible-action-default => { if (root.enabled) { root.clicked(); } }
+    VerticalLayout {
+        padding-top: 5px;
+        padding-bottom: 4px;
+        spacing: 2px;
+        HorizontalLayout {
+            alignment: center;
+            Icon {
+                icon: root.icon;
+                size: 20px;
+                fill: root.enabled ? Theme.brand : Palette.foreground.with-alpha(0.3);
+            }
+        }
+        label := Text {
+            text: root.text;
+            font-size: 11px;
+            horizontal-alignment: center;
+            color: root.enabled ? Palette.foreground : Palette.foreground.with-alpha(0.35);
+        }
+    }
     touch := TouchArea {
-        mouse-cursor: pointer;
+        enabled: root.enabled;
         clicked => { root.clicked(); }
     }
 }
 
-component Card inherits Rectangle {
-    border-radius: 8px;
-    border-width: 1px;
-    border-color: Palette.border;
-    background: Theme.card;
-    VerticalLayout {
-        padding: 14px;
-        spacing: 10px;
-        @children
-    }
+component VSeparator inherits Rectangle {
+    width: 1px;
+    background: Palette.border;
 }
 
-component SectionTitle inherits Text {
-    font-size: 15px;
-    font-weight: 600;
-    color: Palette.foreground;
+component HSeparator inherits Rectangle {
+    height: 1px;
+    background: Palette.border;
 }
 
 component Hint inherits Text {
@@ -102,747 +331,1636 @@ component Hint inherits Text {
     wrap: word-wrap;
 }
 
-component StatusText inherits Text {
-    in property <bool> error;
-    font-size: 13px;
-    color: error ? Theme.danger : Theme.success;
+component ErrorText inherits Text {
+    font-size: 12px;
+    color: Theme.danger;
     wrap: word-wrap;
-    visible: self.text != "";
 }
 
-component PageHeader inherits Rectangle {
-    in property <string> title;
-    callback back;
-    height: 52px;
-    HorizontalLayout {
-        padding: 8px;
-        padding-right: 12px;
-        spacing: 6px;
-        alignment: start;
-        IconButton {
-            icon: Icons.back;
-            label: "Back";
-            clicked => { root.back(); }
-        }
-        Text {
-            text: root.title;
-            font-size: 18px;
-            font-weight: 600;
-            vertical-alignment: center;
-            color: Palette.foreground;
-        }
+component InfoText inherits Text {
+    font-size: 12px;
+    color: Theme.success;
+    wrap: word-wrap;
+}
+
+component SectionTitle inherits Text {
+    font-size: 14px;
+    font-weight: 600;
+    color: Palette.foreground;
+}
+
+component FieldLabel inherits Text {
+    font-size: 12px;
+    color: Theme.dim;
+    vertical-alignment: center;
+}
+
+component LinkText inherits Text {
+    callback clicked;
+    color: touch.has-hover ? Theme.brand.brighter(0.2) : Theme.brand;
+    font-size: 12px;
+    accessible-role: button;
+    accessible-action-default => { root.clicked(); }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// Coloured circle with the first letter of a name.
+component Avatar inherits Rectangle {
+    in property <string> letter;
+    in property <length> size: 26px;
+    width: size;
+    height: size;
+    border-radius: size / 2;
+    background: Theme.brand-soft;
+    Text {
+        text: root.letter == "" ? "?" : root.letter;
+        font-size: root.size * 0.48;
+        font-weight: 600;
+        color: Theme.brand;
+    }
+}
+
+// Ring-less countdown: seconds left over a thin bar.
+component Countdown inherits VerticalLayout {
+    in property <int> remaining;
+    in property <float> progress;
+    in property <bool> warn;
+    alignment: center;
+    spacing: 3px;
+    Text {
+        text: root.remaining + " s";
+        font-size: 11px;
+        color: root.warn ? Theme.danger : Theme.dim;
+        horizontal-alignment: right;
     }
     Rectangle {
-        y: parent.height - 1px;
-        height: 1px;
-        background: Palette.border;
+        height: 3px;
+        border-radius: 1.5px;
+        background: Theme.faint;
+        Rectangle {
+            x: 0;
+            width: parent.width * root.progress;
+            border-radius: 1.5px;
+            background: root.warn ? Theme.danger : Theme.brand;
+        }
     }
 }
 
-component BrandHeader inherits VerticalLayout {
-    in property <string> title;
-    in property <string> subtitle;
-    spacing: 10px;
-    alignment: center;
-    HorizontalLayout {
-        alignment: center;
-        Rectangle {
-            width: 72px;
-            height: 72px;
-            border-radius: 18px;
-            background: #2563eb;
-            Path {
-                commands: Icons.shield;
-                fill: white;
-                viewbox-width: 24;
-                viewbox-height: 24;
-                width: 42px;
-                height: 42px;
-            }
-        }
-    }
-    Text {
-        text: root.title;
-        font-size: 22px;
-        font-weight: 600;
-        horizontal-alignment: center;
-        color: Palette.foreground;
-    }
-    Text {
-        text: root.subtitle;
-        font-size: 13px;
-        color: Theme.dim;
-        horizontal-alignment: center;
-        wrap: word-wrap;
+component BrandMark inherits Rectangle {
+    in property <length> size: 64px;
+    width: size;
+    height: size;
+    border-radius: size / 4;
+    background: #2563eb;
+    Path {
+        commands: Icons.shield;
+        fill: white;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        width: root.size * 0.58;
+        height: root.size * 0.58;
     }
 }
 
 // ------------------------------------------------------------------ setup / lock
 
 component SetupPage inherits Rectangle {
-    in property <string> error;
-    callback create(string, string);
-
     VerticalLayout {
-        padding: 32px;
-        spacing: 12px;
         alignment: center;
-        BrandHeader {
-            title: "Welcome to Authenticator";
-            subtitle: "Create a PIN or password to protect your codes. If you forget it, the codes stored on this PC cannot be recovered, so keep a backup.";
-        }
-        Rectangle { height: 8px; }
-        pin := LineEdit {
-            input-type: password;
-            placeholder-text: "New PIN or password (at least 4 characters)";
-            accepted => { confirm.focus(); }
-            init => { self.focus(); }
-        }
-        confirm := LineEdit {
-            input-type: password;
-            placeholder-text: "Repeat PIN or password";
-            accepted => { root.create(pin.text, confirm.text); }
-        }
-        if root.error != "": StatusText { text: root.error; error: true; }
-        Button {
-            text: "Create";
-            primary: true;
-            clicked => { root.create(pin.text, confirm.text); }
+        HorizontalLayout {
+            alignment: center;
+            VerticalLayout {
+                width: 400px;
+                spacing: 12px;
+                HorizontalLayout { alignment: center; BrandMark { } }
+                Text {
+                    text: "Welcome to Authenticator";
+                    font-size: 22px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    color: Palette.foreground;
+                }
+                Hint {
+                    text: "Create a PIN or password to protect your 2FA codes and passwords. If you forget it, what is stored on this PC cannot be recovered, so keep a backup.";
+                    horizontal-alignment: center;
+                }
+                Rectangle { height: 6px; }
+                pin := LineEdit {
+                    input-type: password;
+                    placeholder-text: "New PIN or password (at least 4 characters)";
+                    accepted => { confirm.focus(); }
+                    init => { self.focus(); }
+                }
+                confirm := LineEdit {
+                    input-type: password;
+                    placeholder-text: "Repeat PIN or password";
+                    accepted => { App.create-pin(pin.text, confirm.text); }
+                }
+                if App.lock-error != "": ErrorText { text: App.lock-error; horizontal-alignment: center; }
+                Button {
+                    text: "Create";
+                    primary: true;
+                    clicked => { App.create-pin(pin.text, confirm.text); }
+                }
+            }
         }
     }
 }
 
 component LockPage inherits Rectangle {
-    in property <string> error;
-    callback unlock(string);
-    callback reset(string);
     property <bool> show-reset: false;
-
+    public function focus-pin() { pin.focus(); }
+    function submit() {
+        App.unlock(pin.text);
+        pin.text = "";
+    }
     VerticalLayout {
-        padding: 32px;
-        spacing: 12px;
         alignment: center;
-        BrandHeader {
-            title: "Authenticator is locked";
-            subtitle: "Enter your PIN or password.";
-        }
-        Rectangle { height: 8px; }
-        pin := LineEdit {
-            input-type: password;
-            placeholder-text: "PIN or password";
-            accepted => {
-                root.unlock(pin.text);
-                pin.text = "";
+        HorizontalLayout {
+            alignment: center;
+            VerticalLayout {
+                width: 380px;
+                spacing: 12px;
+                HorizontalLayout { alignment: center; BrandMark { } }
+                Text {
+                    text: "Authenticator is locked";
+                    font-size: 22px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    color: Palette.foreground;
+                }
+                if App.lock-hint != "": Rectangle {
+                    border-radius: 6px;
+                    background: Theme.brand-soft;
+                    height: hint-text.preferred-height + 16px;
+                    hint-text := Text {
+                        x: 10px;
+                        width: parent.width - 20px;
+                        text: App.lock-hint;
+                        wrap: word-wrap;
+                        font-size: 12px;
+                        color: Palette.foreground;
+                        horizontal-alignment: center;
+                    }
+                }
+                Hint { text: "Enter your PIN or password."; horizontal-alignment: center; }
+                pin := LineEdit {
+                    input-type: password;
+                    placeholder-text: "PIN or password";
+                    accepted => { root.submit(); }
+                }
+                if App.lock-error != "": ErrorText { text: App.lock-error; horizontal-alignment: center; }
+                Button {
+                    text: "Unlock";
+                    primary: true;
+                    clicked => { root.submit(); }
+                }
+                HorizontalLayout {
+                    alignment: center;
+                    LinkText {
+                        text: root.show-reset ? "Cancel" : "Forgot your PIN?";
+                        clicked => { root.show-reset = !root.show-reset; }
+                    }
+                }
+                if root.show-reset: Rectangle {
+                    border-radius: 6px;
+                    border-width: 1px;
+                    border-color: Palette.border;
+                    height: reset-box.preferred-height;
+                    reset-box := VerticalLayout {
+                        padding: 12px;
+                        spacing: 8px;
+                        ErrorText {
+                            text: "Without the PIN nothing can be decrypted. Resetting deletes every 2FA code and password stored on this PC. You can restore them afterwards from a backup file.";
+                        }
+                        confirm := LineEdit { placeholder-text: "Type DELETE to confirm"; }
+                        Button {
+                            text: "Delete everything and start over";
+                            enabled: confirm.text == "DELETE";
+                            clicked => { App.reset-all(confirm.text); }
+                        }
+                    }
+                }
             }
-            init => { self.focus(); }
         }
-        if root.error != "": StatusText { text: root.error; error: true; }
-        Button {
-            text: "Unlock";
-            primary: true;
+    }
+}
+
+// ------------------------------------------------------------------ main window parts
+
+component Toolbar inherits Rectangle {
+    in property <bool> has-selection;
+    callback search-accepted;
+    in property <bool> codes: App.section == Section.codes;
+    public function focus-search() { search.focus(); search.select-all(); }
+    height: 58px;
+    HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 10px;
+        padding-top: 5px;
+        padding-bottom: 5px;
+        spacing: 2px;
+        ToolButton {
+            icon: Icons.add;
+            text: root.codes ? "Add code" : "Add password";
             clicked => {
-                root.unlock(pin.text);
-                pin.text = "";
+                if (root.codes) { App.dialog-error = ""; App.dialog-info = ""; App.dialog = Dialog.add-code; } else { App.new-login(); }
+            }
+        }
+        ToolButton {
+            icon: Icons.edit;
+            text: "Edit";
+            enabled: root.has-selection;
+            clicked => {
+                if (root.codes) { App.edit-code(App.codes[App.code-index].id); } else { App.edit-login(App.logins[App.login-index].id); }
+            }
+        }
+        ToolButton {
+            icon: Icons.delete;
+            text: "Delete";
+            enabled: root.has-selection;
+            clicked => {
+                if (root.codes) { App.ask-delete-code(App.codes[App.code-index].id); } else { App.ask-delete-login(App.logins[App.login-index].id); }
+            }
+        }
+        VSeparator { }
+        ToolButton {
+            icon: Icons.copy;
+            text: root.codes ? "Copy code" : "Copy password";
+            enabled: root.has-selection;
+            clicked => {
+                if (root.codes) { App.copy-code(App.codes[App.code-index].id); } else { App.copy-password(App.logins[App.login-index].id); }
+            }
+        }
+        if !root.codes: ToolButton {
+            icon: Icons.person;
+            text: "Copy user";
+            enabled: root.has-selection;
+            clicked => { App.copy-username(App.logins[App.login-index].id); }
+        }
+        if !root.codes: ToolButton {
+            icon: Icons.timer;
+            text: "Copy 2FA";
+            enabled: root.has-selection && App.logins[App.login-index].otp-code != "";
+            clicked => { App.copy-login-code(App.logins[App.login-index].id); }
+        }
+        if root.codes: ToolButton {
+            icon: Icons.qr;
+            text: "Show QR";
+            enabled: root.has-selection;
+            clicked => { App.show-code-qr(App.codes[App.code-index].id); }
+        }
+        VSeparator { }
+        ToolButton {
+            icon: Icons.export;
+            text: "Export";
+            clicked => { App.open-export(); }
+        }
+        ToolButton {
+            icon: Icons.lock;
+            text: "Lock";
+            clicked => { App.lock(); }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        VerticalLayout {
+            alignment: center;
+            search := LineEdit {
+                width: 240px;
+                placeholder-text: "Search (Ctrl+F)";
+                text <=> App.search;
+                edited(text) => { App.search-changed(text); }
+                accepted => { root.search-accepted(); }
+                key-pressed(event) => {
+                    if (event.text == Key.DownArrow) {
+                        root.search-accepted();
+                        return accept;
+                    }
+                    if (event.text == Key.Escape) {
+                        self.text = "";
+                        App.search-changed("");
+                        return accept;
+                    }
+                    reject
+                }
+            }
+        }
+    }
+}
+
+component SidebarItem inherits Rectangle {
+    in property <string> icon;
+    in property <string> text;
+    in property <int> count;
+    in property <bool> selected;
+    callback clicked;
+    height: 34px;
+    border-radius: 4px;
+    background: selected ? Theme.brand-soft : touch.has-hover ? Palette.foreground.with-alpha(0.05) : transparent;
+    accessible-role: tab;
+    accessible-label: text;
+    accessible-action-default => { root.clicked(); }
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            Icon { icon: root.icon; size: 18px; fill: root.selected ? Theme.brand : Palette.foreground.with-alpha(0.7); }
+        }
+        Text {
+            text: root.text;
+            vertical-alignment: center;
+            font-weight: root.selected ? 600 : 400;
+            color: Palette.foreground;
+            horizontal-stretch: 1;
+        }
+        Text {
+            text: root.count;
+            vertical-alignment: center;
+            font-size: 11px;
+            color: Theme.dim;
+        }
+    }
+    touch := TouchArea { clicked => { root.clicked(); } }
+}
+
+component Sidebar inherits Rectangle {
+    width: 190px;
+    background: Theme.sidebar;
+    VerticalLayout {
+        padding: 8px;
+        spacing: 2px;
+        SidebarItem {
+            icon: Icons.timer;
+            text: "2FA codes";
+            count: App.code-total;
+            selected: App.section == Section.codes;
+            clicked => { App.section = Section.codes; App.section-changed(); }
+        }
+        SidebarItem {
+            icon: Icons.key;
+            text: "Passwords";
+            count: App.login-total;
+            selected: App.section == Section.passwords;
+            clicked => { App.section = Section.passwords; App.section-changed(); }
+        }
+        Rectangle { vertical-stretch: 1; }
+        HorizontalLayout {
+            padding-left: 6px;
+            spacing: 6px;
+            VerticalLayout {
+                alignment: center;
+                Icon { icon: Icons.extension; size: 14px; fill: Theme.dim; }
+            }
+            LinkText {
+                text: App.browser-enabled ? "Browser: on" : "Browser: off";
+                vertical-alignment: center;
+                clicked => { App.open-browser(); }
+            }
+        }
+    }
+}
+
+component HeaderCell inherits Text {
+    font-size: 11px;
+    font-weight: 600;
+    color: Theme.dim;
+    vertical-alignment: center;
+    overflow: elide;
+}
+
+component CodeItem inherits Rectangle {
+    in property <CodeRow> entry;
+    in property <bool> selected;
+    callback select;
+    callback activate;
+    height: 46px;
+    background: selected ? Theme.brand-soft : touch.has-hover ? Palette.foreground.with-alpha(0.04) : transparent;
+    accessible-role: list-item;
+    accessible-label: entry.title + " " + entry.account + ": " + entry.code;
+    accessible-action-default => { root.activate(); }
+
+    touch := TouchArea {
+        clicked => { root.select(); }
+        double-clicked => { root.activate(); }
+    }
+    ContextMenuArea {
+        Menu {
+            MenuItem { title: "Copy code"; activated => { App.copy-code(root.entry.id); } }
+            if root.entry.hotp: MenuItem { title: "Next code"; activated => { App.next-hotp(root.entry.id); } }
+            MenuItem { title: "Show QR code…"; activated => { App.show-code-qr(root.entry.id); } }
+            MenuSeparator { }
+            MenuItem { title: "Edit…"; activated => { App.edit-code(root.entry.id); } }
+            MenuItem { title: "Delete…"; activated => { App.ask-delete-code(root.entry.id); } }
+        }
+    }
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 14px;
+        spacing: 12px;
+        VerticalLayout { alignment: center; Avatar { letter: root.entry.initial; } }
+        Text {
+            text: root.entry.title;
+            font-weight: 600;
+            color: Palette.foreground;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 3;
+            min-width: 60px;
+            preferred-width: 100px;
+        }
+        Text {
+            text: root.entry.account;
+            color: Theme.dim;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 3;
+            min-width: 60px;
+            preferred-width: 100px;
+        }
+        Text {
+            width: 120px;
+            text: root.entry.code;
+            font-size: 19px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            color: root.entry.warn ? Theme.danger : Theme.code;
+            vertical-alignment: center;
+            horizontal-alignment: right;
+        }
+        if !root.entry.hotp: Countdown {
+            width: 56px;
+            remaining: root.entry.remaining;
+            progress: root.entry.progress;
+            warn: root.entry.warn;
+        }
+        if root.entry.hotp: Rectangle {
+            width: 56px;
+            IconButton {
+                x: parent.width - self.width;
+                icon: Icons.refresh;
+                label: "Next code";
+                clicked => { App.next-hotp(root.entry.id); }
+            }
+        }
+    }
+    HSeparator { y: parent.height - 1px; x: 12px; width: parent.width - 24px; background: Theme.faint; }
+}
+
+component LoginItem inherits Rectangle {
+    in property <LoginRow> entry;
+    in property <bool> selected;
+    callback select;
+    callback activate;
+    height: 40px;
+    background: selected ? Theme.brand-soft : touch.has-hover ? Palette.foreground.with-alpha(0.04) : transparent;
+    accessible-role: list-item;
+    accessible-label: entry.title + " " + entry.username;
+    accessible-action-default => { root.activate(); }
+
+    touch := TouchArea {
+        clicked => { root.select(); }
+        double-clicked => { root.activate(); }
+    }
+    ContextMenuArea {
+        Menu {
+            MenuItem { title: "Copy username"; activated => { App.copy-username(root.entry.id); } }
+            MenuItem { title: "Copy password"; activated => { App.copy-password(root.entry.id); } }
+            if root.entry.otp-code != "": MenuItem { title: "Copy 2FA code"; activated => { App.copy-login-code(root.entry.id); } }
+            if root.entry.url != "": MenuItem { title: "Open website"; activated => { App.open-url(root.entry.id); } }
+            MenuSeparator { }
+            MenuItem { title: "Edit…"; activated => { App.edit-login(root.entry.id); } }
+            MenuItem { title: "Delete…"; activated => { App.ask-delete-login(root.entry.id); } }
+        }
+    }
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 14px;
+        spacing: 12px;
+        VerticalLayout { alignment: center; Avatar { letter: root.entry.initial; size: 24px; } }
+        Text {
+            text: root.entry.title;
+            font-weight: 600;
+            color: Palette.foreground;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 3;
+            min-width: 60px;
+            preferred-width: 100px;
+        }
+        Text {
+            text: root.entry.username;
+            color: Palette.foreground;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 3;
+            min-width: 60px;
+            preferred-width: 100px;
+        }
+        Text {
+            text: root.entry.site;
+            color: Theme.dim;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 3;
+            min-width: 60px;
+            preferred-width: 100px;
+        }
+        Rectangle {
+            width: 36px;
+            if root.entry.otp-title != "": Icon { icon: Icons.timer; size: 16px; fill: Theme.brand; }
+        }
+        Text {
+            width: 90px;
+            text: root.entry.modified;
+            color: Theme.dim;
+            font-size: 12px;
+            vertical-alignment: center;
+            horizontal-alignment: right;
+        }
+    }
+    HSeparator { y: parent.height - 1px; x: 12px; width: parent.width - 24px; background: Theme.faint; }
+}
+
+component EmptyState inherits VerticalLayout {
+    in property <string> title;
+    in property <string> text;
+    alignment: center;
+    padding: 32px;
+    spacing: 10px;
+    Text {
+        text: root.title;
+        font-size: 17px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        color: Palette.foreground;
+    }
+    Hint { text: root.text; horizontal-alignment: center; }
+    HorizontalLayout {
+        alignment: center;
+        spacing: 8px;
+        @children
+    }
+}
+
+component CodeTable inherits VerticalLayout {
+    callback focus-list;
+    Rectangle {
+        height: 28px;
+        background: Theme.panel;
+        HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 14px;
+            spacing: 12px;
+            Rectangle { width: 26px; }
+            HeaderCell { text: "SERVICE"; horizontal-stretch: 3; min-width: 60px; preferred-width: 100px; }
+            HeaderCell { text: "ACCOUNT"; horizontal-stretch: 3; min-width: 60px; preferred-width: 100px; }
+            HeaderCell { text: "CODE"; width: 120px; horizontal-alignment: right; }
+            HeaderCell { text: "TIME"; width: 56px; horizontal-alignment: right; }
+        }
+        HSeparator { y: parent.height - 1px; }
+    }
+    if App.code-total == 0: EmptyState {
+        vertical-stretch: 1;
+        title: "No 2FA codes yet";
+        text: "Add one from a QR code screenshot (Win+Shift+S, then Ctrl+V here), a setup key, or import everything from Google Authenticator.";
+        Button {
+            text: "Add 2FA code";
+            primary: true;
+            clicked => { App.dialog-error = ""; App.dialog-info = ""; App.dialog = Dialog.add-code; }
+        }
+        Button { text: "Restore backup…"; clicked => { App.restore-backup(); } }
+    }
+    if App.code-total > 0 && App.codes.length == 0: EmptyState {
+        vertical-stretch: 1;
+        title: "Nothing found";
+        text: "No 2FA code matches \"" + App.search + "\".";
+    }
+    if App.codes.length > 0: ListView {
+        vertical-stretch: 1;
+        for row[i] in App.codes: CodeItem {
+            entry: row;
+            selected: i == App.code-index;
+            select => { App.code-index = i; App.selection-changed(); root.focus-list(); }
+            activate => { App.code-index = i; App.copy-code(row.id); root.focus-list(); }
+        }
+    }
+}
+
+component LoginTable inherits VerticalLayout {
+    callback focus-list;
+    Rectangle {
+        height: 28px;
+        background: Theme.panel;
+        HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 14px;
+            spacing: 12px;
+            Rectangle { width: 24px; }
+            HeaderCell { text: "TITLE"; horizontal-stretch: 3; min-width: 60px; preferred-width: 100px; }
+            HeaderCell { text: "USERNAME"; horizontal-stretch: 3; min-width: 60px; preferred-width: 100px; }
+            HeaderCell { text: "WEBSITE"; horizontal-stretch: 3; min-width: 60px; preferred-width: 100px; }
+            HeaderCell { text: "2FA"; width: 36px; }
+            HeaderCell { text: "MODIFIED"; width: 90px; horizontal-alignment: right; }
+        }
+        HSeparator { y: parent.height - 1px; }
+    }
+    if App.login-total == 0: EmptyState {
+        vertical-stretch: 1;
+        title: "No passwords yet";
+        text: "Save the logins of your websites here. With the browser extension, Authenticator can fill them in for you while it is unlocked.";
+        Button { text: "Add password"; primary: true; clicked => { App.new-login(); } }
+        Button { text: "Import from browser (CSV)…"; clicked => { App.import-csv(); } }
+    }
+    if App.login-total > 0 && App.logins.length == 0: EmptyState {
+        vertical-stretch: 1;
+        title: "Nothing found";
+        text: "No password matches \"" + App.search + "\".";
+    }
+    if App.logins.length > 0: ListView {
+        vertical-stretch: 1;
+        for row[i] in App.logins: LoginItem {
+            entry: row;
+            selected: i == App.login-index;
+            select => { App.login-index = i; App.selection-changed(); root.focus-list(); }
+            activate => { App.login-index = i; App.copy-password(row.id); root.focus-list(); }
+        }
+    }
+}
+
+component DetailLine inherits HorizontalLayout {
+    in property <string> label;
+    spacing: 10px;
+    height: 28px;
+    FieldLabel { text: root.label; width: 80px; }
+    @children
+}
+
+component CodeDetails inherits Rectangle {
+    in property <CodeRow> entry;
+    VerticalLayout {
+        padding: 14px;
+        padding-left: 18px;
+        spacing: 6px;
+        HorizontalLayout {
+            spacing: 14px;
+            VerticalLayout { alignment: center; Avatar { letter: root.entry.initial; size: 40px; } }
+            VerticalLayout {
+                alignment: center;
+                Text { text: root.entry.title; font-size: 16px; font-weight: 600; color: Palette.foreground; overflow: elide; }
+                Text { text: root.entry.account; color: Theme.dim; overflow: elide; visible: root.entry.account != ""; }
+            }
+            Rectangle { horizontal-stretch: 1; }
+            VerticalLayout {
+                alignment: center;
+                Text {
+                    text: root.entry.code;
+                    font-size: 32px;
+                    font-weight: 600;
+                    letter-spacing: 2px;
+                    color: root.entry.warn ? Theme.danger : Theme.code;
+                    horizontal-alignment: right;
+                }
+            }
+            if !root.entry.hotp: Countdown {
+                width: 70px;
+                remaining: root.entry.remaining;
+                progress: root.entry.progress;
+                warn: root.entry.warn;
             }
         }
         HorizontalLayout {
-            alignment: center;
-            LinkText {
-                text: root.show-reset ? "Cancel" : "Forgot your PIN?";
-                clicked => { root.show-reset = !root.show-reset; }
-            }
+            spacing: 8px;
+            Button { text: "Copy code"; primary: true; clicked => { App.copy-code(root.entry.id); } }
+            if root.entry.hotp: Button { text: "Next code"; clicked => { App.next-hotp(root.entry.id); } }
+            Button { text: "Show QR code…"; clicked => { App.show-code-qr(root.entry.id); } }
+            Button { text: "Edit…"; clicked => { App.edit-code(root.entry.id); } }
+            Rectangle { horizontal-stretch: 1; }
         }
-        if root.show-reset: Card {
-            Text {
-                text: "Without the PIN the codes cannot be decrypted. Resetting deletes every account stored on this PC. You can restore them afterwards from a backup file.";
-                wrap: word-wrap;
-                font-size: 13px;
-                color: Theme.danger;
-            }
-            confirm := LineEdit {
-                placeholder-text: "Type DELETE to confirm";
-            }
-            Button {
-                text: "Delete everything and start over";
-                enabled: confirm.text == "DELETE";
-                clicked => { root.reset(confirm.text); }
-            }
-        }
+        Hint { text: root.entry.info; }
+        if root.entry.used-by != "": Hint { text: "Used by the saved login " + root.entry.used-by + "."; }
+        Rectangle { vertical-stretch: 1; }
     }
 }
 
-// ------------------------------------------------------------------ main list
-
-component EntryItem inherits Rectangle {
-    in property <EntryRow> entry;
-    callback copy;
-    callback next;
-    callback edit;
-    height: 84px;
-    background: touch.has-hover ? Palette.foreground.with-alpha(0.05) : transparent;
-    accessible-role: button;
-    accessible-label: entry.title + " " + entry.subtitle + ": " + entry.code;
-    accessible-action-default => { root.copy(); }
-
-    touch := TouchArea {
-        mouse-cursor: pointer;
-        clicked => { root.copy(); }
-    }
-
-    HorizontalLayout {
-        padding-left: 16px;
-        padding-right: 8px;
-        spacing: 8px;
-        VerticalLayout {
-            alignment: center;
-            spacing: 1px;
-            Text {
-                text: root.entry.title;
-                font-size: 13px;
-                font-weight: 600;
-                color: Palette.foreground;
-                overflow: elide;
-            }
-            Text {
-                text: root.entry.subtitle;
-                font-size: 12px;
-                color: Theme.dim;
-                overflow: elide;
-                visible: root.entry.subtitle != "";
-            }
-            Text {
-                text: root.entry.code;
-                font-size: 28px;
-                font-weight: 600;
-                letter-spacing: 1px;
-                color: root.entry.warn ? Theme.danger : Theme.code;
-            }
-        }
-        if !root.entry.hotp: Rectangle {
-            width: 36px;
-            Rectangle {
-                width: 30px;
-                height: 30px;
-                border-radius: 15px;
-                border-width: 2px;
-                border-color: root.entry.warn ? Theme.danger : Palette.accent-background;
-                Text {
-                    text: root.entry.remaining;
-                    font-size: 12px;
-                    font-weight: 600;
-                    color: root.entry.warn ? Theme.danger : Palette.foreground;
-                }
-            }
-        }
-        if root.entry.hotp: VerticalLayout {
-            alignment: center;
-            IconButton {
-                icon: Icons.refresh;
-                label: "Next code";
-                clicked => { root.next(); }
-            }
-        }
-        VerticalLayout {
-            alignment: center;
-            IconButton {
-                icon: Icons.more;
-                label: "Edit or delete";
-                clicked => { root.edit(); }
-            }
-        }
-    }
-
-    // Time left until the code changes.
-    if !root.entry.hotp: Rectangle {
-        x: 16px;
-        y: parent.height - 3px;
-        height: 2px;
-        width: (parent.width - 32px) * root.entry.progress;
-        background: root.entry.warn ? Theme.danger : Palette.accent-background;
-    }
-    Rectangle {
-        x: 16px;
-        y: parent.height - 1px;
-        height: 1px;
-        width: parent.width - 32px;
-        background: Palette.border;
-    }
-}
-
-component ListPage inherits Rectangle {
-    in property <[EntryRow]> entries;
-    in property <int> total;
-    in-out property <string> search;
-    callback search-edited(string);
-    callback add;
-    callback export;
-    callback settings;
-    callback lock;
-    callback copy(int);
-    callback next(int);
-    callback edit(EntryRow);
-
+component LoginDetails inherits Rectangle {
+    in property <LoginRow> entry;
+    property <bool> shown: App.revealed-id == entry.id;
     VerticalLayout {
-        Rectangle {
-            height: 56px;
-            HorizontalLayout {
-                padding: 10px;
-                padding-left: 16px;
-                padding-right: 8px;
-                spacing: 2px;
-                Text {
-                    text: "Authenticator";
-                    font-size: 20px;
-                    font-weight: 600;
-                    vertical-alignment: center;
-                    color: Palette.foreground;
-                    horizontal-stretch: 1;
-                }
-                IconButton { icon: Icons.add; label: "Add account (Ctrl+N)"; clicked => { root.add(); } }
-                IconButton { icon: Icons.export; label: "Export"; clicked => { root.export(); } }
-                IconButton { icon: Icons.settings; label: "Settings"; clicked => { root.settings(); } }
-                IconButton { icon: Icons.lock; label: "Lock (Ctrl+L)"; clicked => { root.lock(); } }
-            }
+        padding: 12px;
+        padding-left: 18px;
+        spacing: 2px;
+        HorizontalLayout {
+            spacing: 12px;
+            height: 34px;
+            VerticalLayout { alignment: center; Avatar { letter: root.entry.initial; size: 28px; } }
+            Text { text: root.entry.title; font-size: 16px; font-weight: 600; color: Palette.foreground; vertical-alignment: center; overflow: elide; }
+            Rectangle { horizontal-stretch: 1; }
+            Button { text: "Edit…"; clicked => { App.edit-login(root.entry.id); } }
         }
-        if root.total > 0: HorizontalLayout {
-            padding-left: 12px;
-            padding-right: 12px;
-            padding-bottom: 6px;
-            LineEdit {
-                placeholder-text: "Search";
-                text <=> root.search;
-                edited(text) => { root.search-edited(text); }
-            }
+        DetailLine {
+            label: "Username";
+            Text { text: root.entry.username == "" ? "—" : root.entry.username; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; color: Palette.foreground; }
+            IconButton { icon: Icons.copy; label: "Copy username"; enabled: root.entry.username != ""; clicked => { App.copy-username(root.entry.id); } }
         }
-        Rectangle {
-            height: 1px;
-            background: Palette.border;
-        }
-        if root.total == 0: VerticalLayout {
-            alignment: center;
-            padding: 32px;
-            spacing: 14px;
+        DetailLine {
+            label: "Password";
             Text {
-                text: "No accounts yet";
-                font-size: 18px;
-                font-weight: 600;
-                horizontal-alignment: center;
+                text: root.shown ? App.revealed-password : "••••••••••••";
+                vertical-alignment: center;
+                overflow: elide;
+                horizontal-stretch: 1;
                 color: Palette.foreground;
+                font-family: root.shown ? "Consolas" : "";
             }
-            Hint {
-                text: "Add an account from a QR code screenshot, a setup key, or import everything from Google Authenticator.";
-                horizontal-alignment: center;
+            IconButton {
+                icon: root.shown ? Icons.eye-off : Icons.eye;
+                label: root.shown ? "Hide password" : "Show password";
+                clicked => { if (root.shown) { App.revealed-id = -1; } else { App.reveal-password(root.entry.id); } }
             }
-            HorizontalLayout {
-                alignment: center;
-                Button {
-                    text: "Add account";
-                    primary: true;
-                    clicked => { root.add(); }
-                }
-            }
+            IconButton { icon: Icons.copy; label: "Copy password"; clicked => { App.copy-password(root.entry.id); } }
         }
-        if root.total > 0 && root.entries.length == 0: VerticalLayout {
-            alignment: start;
-            padding: 32px;
-            Hint {
-                text: "No accounts match your search.";
-                horizontal-alignment: center;
-            }
+        DetailLine {
+            label: "Website";
+            Text { text: root.entry.url == "" ? "—" : root.entry.url; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; color: Palette.foreground; }
+            IconButton { icon: Icons.open; label: "Open website"; enabled: root.entry.url != ""; clicked => { App.open-url(root.entry.id); } }
         }
-        if root.entries.length > 0: ListView {
-            vertical-stretch: 1;
-            for row in root.entries: EntryItem {
-                entry: row;
-                copy => { root.copy(row.id); }
-                next => { root.next(row.id); }
-                edit => { root.edit(row); }
+        DetailLine {
+            label: "2FA code";
+            Text {
+                text: root.entry.otp-code == "" ? "—" : root.entry.otp-code + "   (" + root.entry.otp-remaining + " s, " + root.entry.otp-title + ")";
+                vertical-alignment: center;
+                overflow: elide;
+                horizontal-stretch: 1;
+                color: root.entry.otp-code == "" ? Palette.foreground : root.entry.otp-warn ? Theme.danger : Theme.code;
+                font-weight: root.entry.otp-code == "" ? 400 : 600;
             }
+            IconButton { icon: Icons.copy; label: "Copy 2FA code"; enabled: root.entry.otp-code != ""; clicked => { App.copy-login-code(root.entry.id); } }
         }
-        if root.entries.length > 0: Hint {
-            text: "Click a code to copy it.";
-            horizontal-alignment: center;
-            height: 28px;
+        if root.entry.notes != "": HorizontalLayout {
+            spacing: 10px;
+            FieldLabel { text: "Notes"; width: 80px; vertical-alignment: top; }
+            Text { text: root.entry.notes; wrap: word-wrap; color: Palette.foreground; horizontal-stretch: 1; font-size: 12px; }
+        }
+        Rectangle { vertical-stretch: 1; }
+    }
+}
+
+component StatusBar inherits Rectangle {
+    height: 24px;
+    background: Theme.panel;
+    HSeparator { y: 0; }
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 12px;
+        Text {
+            text: App.section == Section.codes
+                ? (App.codes.length != App.code-total ? App.codes.length + " of " : "") + (App.code-total == 1 ? "1 code" : App.code-total + " codes")
+                : (App.logins.length != App.login-total ? App.logins.length + " of " : "") + (App.login-total == 1 ? "1 password" : App.login-total + " passwords");
+            font-size: 11px;
+            color: Theme.dim;
+            vertical-alignment: center;
+        }
+        Text {
+            // Only problems with the browser integration (details in its dialog).
+            text: App.browser-status-error ? "Browser integration: " + App.browser-status : "";
+            font-size: 11px;
+            color: Theme.danger;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 1;
+        }
+        Text {
+            text: App.status-right;
+            font-size: 11px;
+            color: Theme.dim;
             vertical-alignment: center;
         }
     }
 }
 
-// ------------------------------------------------------------------ add
+component MainPage inherits Rectangle {
+    property <bool> codes: App.section == Section.codes;
+    property <bool> has-selection: codes ? (App.code-index >= 0 && App.code-index < App.codes.length) : (App.login-index >= 0 && App.login-index < App.logins.length);
+    public function focus-search() { toolbar.focus-search(); }
+    public function focus-list() { keys.focus(); }
 
-component AddPage inherits Rectangle {
-    in property <string> status;
-    in property <bool> status-error;
-    in property <bool> can-scan-screen;
-    callback back;
-    callback paste-image;
-    callback scan-screen;
-    callback open-image;
-    callback add-manual(string, string, string, int, int, int, string);
-    callback add-link(string);
-    callback restore-backup;
-    property <bool> advanced: false;
+    function move(delta: int) {
+        if (root.codes) {
+            if (App.codes.length == 0) { return; }
+            App.code-index = max(0, min(App.codes.length - 1, App.code-index + delta));
+        } else {
+            if (App.logins.length == 0) { return; }
+            App.login-index = max(0, min(App.logins.length - 1, App.login-index + delta));
+        }
+        App.selection-changed();
+    }
 
     VerticalLayout {
-        PageHeader {
-            title: "Add account";
-            back => { root.back(); }
+        toolbar := Toolbar {
+            has-selection: root.has-selection;
+            search-accepted => {
+                if (!root.has-selection) { root.move(-100000); }
+                keys.focus();
+            }
         }
-        ScrollView {
+        HSeparator { }
+        HorizontalLayout {
             vertical-stretch: 1;
-            VerticalLayout {
-                alignment: start;
-                padding: 14px;
-                spacing: 12px;
-                if root.status != "": StatusText { text: root.status; error: root.status-error; }
-                Card {
-                    SectionTitle { text: "From a QR code"; }
-                    Hint {
-                        text: "Works with a service's setup QR code and with Google Authenticator's \"Transfer accounts\" export codes (add each code in turn).";
+            Sidebar { }
+            VSeparator { }
+            keys := FocusScope {
+                horizontal-stretch: 1;
+                key-pressed(event) => {
+                    if (event.text == Key.UpArrow) { root.move(-1); return accept; }
+                    if (event.text == Key.DownArrow) { root.move(1); return accept; }
+                    if (event.text == Key.PageUp) { root.move(-10); return accept; }
+                    if (event.text == Key.PageDown) { root.move(10); return accept; }
+                    if (event.text == Key.Home) { root.move(-100000); return accept; }
+                    if (event.text == Key.End) { root.move(100000); return accept; }
+                    if (event.modifiers.control && (event.text == "v" || event.text == "V")) {
+                        if (root.codes) { App.paste-image(); return accept; }
                     }
-                    Button {
-                        text: "Paste screenshot from clipboard (Ctrl+V)";
-                        primary: true;
-                        clicked => { root.paste-image(); }
+                    if (!root.has-selection) { return reject; }
+                    if (event.text == Key.Return) {
+                        if (root.codes) { App.copy-code(App.codes[App.code-index].id); } else { App.copy-password(App.logins[App.login-index].id); }
+                        return accept;
                     }
-                    Hint {
-                        text: "Tip: press Win+Shift+S, select the QR code, then come back here and press Ctrl+V.";
+                    if (event.text == Key.Delete) {
+                        if (root.codes) { App.ask-delete-code(App.codes[App.code-index].id); } else { App.ask-delete-login(App.logins[App.login-index].id); }
+                        return accept;
                     }
-                    HorizontalLayout {
-                        spacing: 8px;
-                        Button {
-                            text: "Scan screen";
-                            enabled: root.can-scan-screen;
-                            clicked => { root.scan-screen(); }
-                        }
-                        Button {
-                            text: "Open image file…";
-                            clicked => { root.open-image(); }
-                        }
+                    if (event.modifiers.control && (event.text == "c" || event.text == "C")) {
+                        if (root.codes) { App.copy-code(App.codes[App.code-index].id); } else { App.copy-password(App.logins[App.login-index].id); }
+                        return accept;
                     }
+                    if (event.modifiers.control && (event.text == "e" || event.text == "E")) {
+                        if (root.codes) { App.edit-code(App.codes[App.code-index].id); } else { App.edit-login(App.logins[App.login-index].id); }
+                        return accept;
+                    }
+                    if (!root.codes && event.modifiers.control && (event.text == "b" || event.text == "B")) {
+                        App.copy-username(App.logins[App.login-index].id);
+                        return accept;
+                    }
+                    if (!root.codes && event.modifiers.control && (event.text == "t" || event.text == "T")) {
+                        App.copy-login-code(App.logins[App.login-index].id);
+                        return accept;
+                    }
+                    if (!root.codes && event.modifiers.control && (event.text == "u" || event.text == "U")) {
+                        App.open-url(App.logins[App.login-index].id);
+                        return accept;
+                    }
+                    reject
                 }
-                Card {
-                    SectionTitle { text: "Enter a setup key"; }
-                    issuer := LineEdit { placeholder-text: "Service (e.g. GitHub)"; }
-                    name := LineEdit { placeholder-text: "Account (e.g. you@example.com)"; }
-                    secret := LineEdit {
-                        placeholder-text: "Secret key";
-                        accepted => {
-                            root.add-manual(issuer.text, name.text, secret.text, kind-index, algo-index, digits-index,
-                                kind-index == 0 ? period-text : counter-text);
-                        }
+                VerticalLayout {
+                    if root.codes: CodeTable {
+                        vertical-stretch: 1;
+                        focus-list => { keys.focus(); }
                     }
-                    CheckBox {
-                        text: "Advanced options";
-                        checked <=> root.advanced;
+                    if !root.codes: LoginTable {
+                        vertical-stretch: 1;
+                        focus-list => { keys.focus(); }
                     }
-                    if root.advanced: VerticalLayout {
-                        spacing: 8px;
-                        HorizontalLayout {
-                            spacing: 8px;
-                            Text { text: "Type"; vertical-alignment: center; width: 80px; color: Palette.foreground; }
-                            ComboBox {
-                                model: ["Time-based (TOTP)", "Counter-based (HOTP)"];
-                                current-index <=> kind-index;
-                            }
-                        }
-                        HorizontalLayout {
-                            spacing: 8px;
-                            Text { text: "Algorithm"; vertical-alignment: center; width: 80px; color: Palette.foreground; }
-                            ComboBox {
-                                model: ["SHA1", "SHA256", "SHA512"];
-                                current-index <=> algo-index;
-                            }
-                        }
-                        HorizontalLayout {
-                            spacing: 8px;
-                            Text { text: "Digits"; vertical-alignment: center; width: 80px; color: Palette.foreground; }
-                            ComboBox {
-                                model: ["6", "7", "8"];
-                                current-index <=> digits-index;
-                            }
-                        }
-                        HorizontalLayout {
-                            spacing: 8px;
-                            Text {
-                                text: kind-index == 0 ? "Period (s)" : "Counter";
-                                vertical-alignment: center;
-                                width: 80px;
-                                color: Palette.foreground;
-                            }
-                            if kind-index == 0: LineEdit {
-                                text <=> period-text;
-                                input-type: number;
-                            }
-                            if kind-index != 0: LineEdit {
-                                text <=> counter-text;
-                                input-type: number;
-                            }
-                        }
+                    if root.has-selection: HSeparator { }
+                    if root.has-selection && root.codes: CodeDetails {
+                        height: 150px;
+                        entry: App.codes[App.code-index];
                     }
-                    Button {
-                        text: "Add";
-                        clicked => {
-                            root.add-manual(issuer.text, name.text, secret.text, kind-index, algo-index, digits-index,
-                                kind-index == 0 ? period-text : counter-text);
-                        }
-                    }
-                }
-                Card {
-                    SectionTitle { text: "Paste a link"; }
-                    link := LineEdit {
-                        placeholder-text: "otpauth://… or otpauth-migration://…";
-                        accepted => { root.add-link(link.text); }
-                    }
-                    Button {
-                        text: "Add from link";
-                        clicked => { root.add-link(link.text); }
-                    }
-                }
-                Card {
-                    SectionTitle { text: "Restore a backup"; }
-                    Hint { text: "Import an encrypted backup file created by this app on Android or on another PC."; }
-                    Button {
-                        text: "Restore from backup file…";
-                        clicked => { root.restore-backup(); }
+                    if root.has-selection && !root.codes: LoginDetails {
+                        height: 196px;
+                        entry: App.logins[App.login-index];
                     }
                 }
             }
         }
+        StatusBar { }
     }
+}
+
+// ------------------------------------------------------------------ dialogs
+
+component DialogFrame inherits Rectangle {
+    in property <string> title;
+    in property <length> dialog-width: 460px;
+    in property <length> dialog-height: 10000px;
+    in property <bool> closable: true;
+    // False when a field inside takes the keyboard focus itself.
+    in property <bool> focus-frame: true;
+    background: #00000066;
+    TouchArea { }
+    FocusScope {
+        init => { if (root.focus-frame) { self.focus(); } }
+        key-pressed(event) => {
+            if (event.text == Key.Escape && root.closable) {
+                App.close-dialog();
+                return accept;
+            }
+            if (App.dialog == Dialog.add-code && event.modifiers.control && (event.text == "v" || event.text == "V")) {
+                App.paste-image();
+                return accept;
+            }
+            reject
+        }
+        Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: min(root.width - 32px, root.dialog-width);
+            height: min(frame.preferred-height, root.height - 32px, root.dialog-height);
+            background: Palette.background;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: Palette.border;
+            drop-shadow-blur: 24px;
+            drop-shadow-color: #00000040;
+            frame := VerticalLayout {
+                padding: 18px;
+                spacing: 12px;
+                HorizontalLayout {
+                    Text { text: root.title; font-size: 16px; font-weight: 600; color: Palette.foreground; horizontal-stretch: 1; vertical-alignment: center; }
+                    if root.closable: IconButton {
+                        icon: "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z";
+                        label: "Close";
+                        clicked => { App.close-dialog(); }
+                    }
+                }
+                @children
+            }
+        }
+    }
+}
+
+component DialogButtons inherits HorizontalLayout {
+    spacing: 8px;
+    alignment: end;
+}
+
+component Messages inherits VerticalLayout {
+    spacing: 4px;
+    if App.dialog-error != "": ErrorText { text: App.dialog-error; }
+    if App.dialog-info != "": InfoText { text: App.dialog-info; }
+}
+
+component AddCodeDialog inherits DialogFrame {
+    title: "Add 2FA code";
+    dialog-width: 520px;
+    property <bool> advanced: false;
     property <int> kind-index: 0;
     property <int> algo-index: 0;
     property <int> digits-index: 0;
     property <string> period-text: "30";
     property <string> counter-text: "0";
+    function add() {
+        App.add-manual(issuer.text, name.text, secret.text, kind-index, algo-index, digits-index,
+            kind-index == 0 ? period-text : counter-text);
+    }
+    Messages { }
+    ScrollView {
+        vertical-stretch: 1;
+        min-height: 200px;
+        preferred-height: content.preferred-height;
+        content := VerticalLayout {
+            alignment: start;
+            padding-right: 14px;
+            spacing: 10px;
+            SectionTitle { text: "From a QR code"; }
+            Hint { text: "Works with a website's setup QR code and with Google Authenticator's \"Transfer accounts\" export codes (add each code in turn)."; }
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: start;
+                Button { text: "Paste screenshot (Ctrl+V)"; primary: true; clicked => { App.paste-image(); } }
+                Button { text: "Scan screen"; enabled: App.can-scan-screen; clicked => { App.scan-screen(); } }
+                Button { text: "Open image…"; clicked => { App.open-image(); } }
+            }
+            Hint { text: "Tip: press Win+Shift+S, select the QR code, then press Ctrl+V here."; }
+            HSeparator { }
+            SectionTitle { text: "Setup key"; }
+            HorizontalLayout {
+                spacing: 8px;
+                issuer := LineEdit { placeholder-text: "Service (e.g. GitHub)"; }
+                name := LineEdit { placeholder-text: "Account (e.g. you@example.com)"; }
+            }
+            secret := LineEdit {
+                placeholder-text: "Secret key";
+                accepted => { root.add(); }
+            }
+            CheckBox { text: "Advanced options"; checked <=> root.advanced; }
+            if root.advanced: HorizontalLayout {
+                spacing: 8px;
+                ComboBox { model: ["TOTP (time)", "HOTP (counter)"]; current-index <=> root.kind-index; }
+                ComboBox { model: ["SHA1", "SHA256", "SHA512"]; current-index <=> root.algo-index; }
+                ComboBox { model: ["6 digits", "7 digits", "8 digits"]; current-index <=> root.digits-index; }
+                if root.kind-index == 0: LineEdit { text <=> root.period-text; input-type: number; placeholder-text: "Period (s)"; width: 90px; }
+                if root.kind-index != 0: LineEdit { text <=> root.counter-text; input-type: number; placeholder-text: "Counter"; width: 90px; }
+            }
+            HorizontalLayout {
+                alignment: start;
+                Button { text: "Add"; clicked => { root.add(); } }
+            }
+            HSeparator { }
+            SectionTitle { text: "Link"; }
+            HorizontalLayout {
+                spacing: 8px;
+                link := LineEdit {
+                    placeholder-text: "otpauth://… or otpauth-migration://…";
+                    accepted => { App.add-link(link.text); }
+                }
+                Button { text: "Add from link"; clicked => { App.add-link(link.text); } }
+            }
+            HSeparator { }
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: start;
+                Hint { text: "Moving from another device?"; vertical-alignment: center; }
+                Button { text: "Restore backup file…"; clicked => { App.restore-backup(); } }
+            }
+        }
+    }
 }
 
-// ------------------------------------------------------------------ export
+component EditCodeDialog inherits DialogFrame {
+    title: App.confirm-delete ? "Delete 2FA code?" : "Edit 2FA code";
+    if !App.confirm-delete: VerticalLayout {
+        spacing: 8px;
+        FieldLabel { text: "Service"; }
+        LineEdit { text <=> App.edit-issuer; placeholder-text: "Service"; }
+        FieldLabel { text: "Account"; }
+        LineEdit { text <=> App.edit-name; placeholder-text: "Account"; }
+        Hint { text: App.edit-code-info; }
+    }
+    if App.confirm-delete: ErrorText {
+        text: "\"" + App.edit-issuer + "\" will be removed from this PC. Make sure you can still sign in another way (for example, the code is also on your phone), or you may lose access to the account.";
+        font-size: 13px;
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        if !App.confirm-delete: Button { text: "Delete…"; clicked => { App.confirm-delete = true; } }
+        if !App.confirm-delete: Button { text: "Show QR code…"; clicked => { App.show-code-qr(App.edit-code-id); } }
+        Rectangle { horizontal-stretch: 1; }
+        Button {
+            text: "Cancel";
+            clicked => { if (App.confirm-delete) { App.confirm-delete = false; } else { App.close-dialog(); } }
+        }
+        if !App.confirm-delete: Button { text: "Save"; primary: true; clicked => { App.save-code(); } }
+        if App.confirm-delete: Button { text: "Delete"; primary: true; clicked => { App.delete-code(App.edit-code-id); } }
+    }
+}
 
-component ExportPage inherits Rectangle {
-    in property <string> status;
-    in property <bool> status-error;
-    in property <int> total;
-    callback back;
-    callback show-qr;
-    callback save-backup(string, string);
+component GeneratorOptions inherits VerticalLayout {
+    spacing: 6px;
+    HorizontalLayout {
+        spacing: 8px;
+        FieldLabel { text: "Length"; width: 50px; }
+        SpinBox {
+            width: 110px;
+            minimum: 4;
+            maximum: 128;
+            value <=> App.gen-length;
+            edited => { App.generator-changed(); }
+        }
+        Rectangle { horizontal-stretch: 1; }
+    }
+    HorizontalLayout {
+        spacing: 10px;
+        CheckBox { text: "a-z"; checked <=> App.gen-lower; toggled => { App.generator-changed(); } }
+        CheckBox { text: "A-Z"; checked <=> App.gen-upper; toggled => { App.generator-changed(); } }
+        CheckBox { text: "0-9"; checked <=> App.gen-digits; toggled => { App.generator-changed(); } }
+        CheckBox { text: "!@#"; checked <=> App.gen-symbols; toggled => { App.generator-changed(); } }
+    }
+    CheckBox { text: "Avoid look-alike characters (Il1O0)"; checked <=> App.gen-similar; toggled => { App.generator-changed(); } }
+}
 
-    function submit-backup() {
-        root.save-backup(pw.text, pw2.text);
+component EditLoginDialog inherits DialogFrame {
+    title: App.confirm-delete ? "Delete password?" : App.login-edit-id < 0 ? "Add password" : "Edit password";
+    dialog-width: 560px;
+    focus-frame: false;
+    property <bool> show-password: false;
+    property <bool> show-generator: false;
+    Messages { }
+    if App.confirm-delete: ErrorText {
+        text: "\"" + (App.login-title != "" ? App.login-title : App.login-url) + "\" will be deleted. If it is not saved anywhere else, you will need the website's \"forgot password\" option to get back in.";
+        font-size: 13px;
+    }
+    if !App.confirm-delete: ScrollView {
+        vertical-stretch: 1;
+        min-height: 160px;
+        preferred-height: form.preferred-height;
+        form := VerticalLayout {
+            alignment: start;
+            padding-right: 14px;
+            spacing: 6px;
+            HorizontalLayout {
+                spacing: 10px;
+                FieldLabel { text: "Title"; width: 80px; }
+                title-edit := LineEdit {
+                    text <=> App.login-title;
+                    placeholder-text: "Name shown in the list (optional)";
+                    init => { self.focus(); }
+                }
+            }
+            HorizontalLayout {
+                spacing: 10px;
+                FieldLabel { text: "Website"; width: 80px; }
+                LineEdit { text <=> App.login-url; placeholder-text: "https://example.com"; }
+            }
+            HorizontalLayout {
+                spacing: 10px;
+                FieldLabel { text: "Username"; width: 80px; }
+                LineEdit { text <=> App.login-username; placeholder-text: "Username or email"; }
+            }
+            HorizontalLayout {
+                spacing: 6px;
+                FieldLabel { text: "Password"; width: 84px; }
+                LineEdit {
+                    text <=> App.login-password;
+                    input-type: root.show-password ? InputType.text : InputType.password;
+                    placeholder-text: "Password";
+                }
+                IconButton {
+                    icon: root.show-password ? Icons.eye-off : Icons.eye;
+                    label: root.show-password ? "Hide password" : "Show password";
+                    clicked => { root.show-password = !root.show-password; }
+                }
+                IconButton {
+                    icon: Icons.dice;
+                    label: "Generate a password";
+                    clicked => { App.fill-generated(); root.show-password = true; }
+                }
+            }
+            HorizontalLayout {
+                padding-left: 90px;
+                LinkText {
+                    text: root.show-generator ? "Hide generator options" : "Generator options";
+                    clicked => { root.show-generator = !root.show-generator; }
+                }
+            }
+            if root.show-generator: HorizontalLayout {
+                padding-left: 90px;
+                GeneratorOptions { }
+            }
+            HorizontalLayout {
+                spacing: 10px;
+                FieldLabel { text: "2FA code"; width: 80px; }
+                ComboBox {
+                    model: App.otp-choices;
+                    current-index <=> App.login-otp-index;
+                }
+            }
+            HorizontalLayout {
+                spacing: 10px;
+                FieldLabel { text: "Notes"; width: 80px; vertical-alignment: top; }
+                TextEdit {
+                    text <=> App.login-notes;
+                    height: 72px;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        if !App.confirm-delete && App.login-edit-id >= 0: Button { text: "Delete…"; clicked => { App.confirm-delete = true; } }
+        Rectangle { horizontal-stretch: 1; }
+        Button {
+            text: "Cancel";
+            clicked => { if (App.confirm-delete) { App.confirm-delete = false; } else { App.close-dialog(); } }
+        }
+        if !App.confirm-delete: Button { text: "Save"; primary: true; clicked => { App.save-login(); } }
+        if App.confirm-delete: Button { text: "Delete"; primary: true; clicked => { App.delete-login(App.login-edit-id); } }
+    }
+}
+
+component GeneratorDialog inherits DialogFrame {
+    title: "Password generator";
+    Rectangle {
+        height: 44px;
+        border-radius: 6px;
+        background: Theme.panel;
+        border-width: 1px;
+        border-color: Palette.border;
+        Text {
+            x: 12px;
+            width: parent.width - 24px;
+            text: App.gen-result;
+            font-size: 16px;
+            font-family: "Consolas";
+            color: Palette.foreground;
+            overflow: elide;
+        }
+    }
+    GeneratorOptions { }
+    DialogButtons {
+        Button { text: "New password"; clicked => { App.generator-changed(); } }
+        Button { text: "Copy"; primary: true; clicked => { App.copy-generated(); } }
+    }
+}
+
+component PickList inherits Rectangle {
+    in property <[PickRow]> rows;
+    in property <bool> codes;
+    border-width: 1px;
+    border-color: Palette.border;
+    border-radius: 4px;
+    ListView {
+        for row[i] in root.rows: Rectangle {
+            height: 30px;
+            TouchArea { clicked => { App.toggle-pick(root.codes, i); } }
+            HorizontalLayout {
+                padding-left: 8px;
+                padding-right: 8px;
+                spacing: 8px;
+                CheckBox {
+                    checked: row.checked;
+                    toggled => { App.toggle-pick(root.codes, i); }
+                }
+                Text { text: row.title; vertical-alignment: center; overflow: elide; color: Palette.foreground; horizontal-stretch: 1; preferred-width: 100px; min-width: 40px; }
+                Text { text: row.subtitle; vertical-alignment: center; overflow: elide; color: Theme.dim; font-size: 12px; horizontal-stretch: 1; preferred-width: 100px; min-width: 40px; }
+            }
+        }
+    }
+}
+
+component ExportDialog inherits DialogFrame {
+    title: "Export and transfer";
+    dialog-width: 640px;
+    function submit() {
+        App.export-backup(pw.text, pw2.text);
         pw.text = "";
         pw2.text = "";
     }
-
-    VerticalLayout {
-        PageHeader {
-            title: "Export accounts";
-            back => { root.back(); }
-        }
-        ScrollView {
-            vertical-stretch: 1;
-            VerticalLayout {
-                alignment: start;
-                padding: 14px;
-                spacing: 12px;
-                if root.status != "": StatusText { text: root.status; error: root.status-error; }
-                Card {
-                    SectionTitle { text: "QR codes (Google Authenticator format)"; }
-                    Hint {
-                        text: "Shows QR codes that Google Authenticator, this app on Android, and most other authenticator apps can scan.";
-                    }
-                    Text {
-                        text: "Anyone who sees these codes can copy your accounts. Show them only to your own device.";
-                        font-size: 12px;
-                        color: Theme.warn;
-                        wrap: word-wrap;
-                    }
-                    Button {
-                        text: "Show QR codes";
-                        primary: true;
-                        enabled: root.total > 0;
-                        clicked => { root.show-qr(); }
-                    }
-                }
-                Card {
-                    SectionTitle { text: "Encrypted backup file"; }
-                    Hint {
-                        text: "Saves every account in a password-protected file (Argon2id + AES-256). Restore it on Android or on another PC. If you lose the password, the file cannot be opened.";
-                    }
-                    pw := LineEdit {
-                        input-type: password;
-                        placeholder-text: "Backup password (at least 8 characters)";
-                    }
-                    pw2 := LineEdit {
-                        input-type: password;
-                        placeholder-text: "Repeat password";
-                        accepted => { root.submit-backup(); }
-                    }
-                    Button {
-                        text: "Save backup file…";
-                        enabled: root.total > 0;
-                        clicked => { root.submit-backup(); }
-                    }
-                }
+    Messages { }
+    HorizontalLayout {
+        spacing: 12px;
+        vertical-stretch: 1;
+        min-height: 150px;
+        preferred-height: 230px;
+        VerticalLayout {
+            spacing: 6px;
+            HorizontalLayout {
+                SectionTitle { text: "2FA codes (" + App.export-code-count + "/" + App.export-codes.length + ")"; horizontal-stretch: 1; }
+                LinkText { text: "All"; clicked => { App.pick-all(true, true); } }
+                Rectangle { width: 8px; }
+                LinkText { text: "None"; clicked => { App.pick-all(true, false); } }
             }
-        }
-    }
-}
-
-component ExportQrPage inherits Rectangle {
-    in property <[image]> codes;
-    in-out property <int> index;
-    in property <string> note;
-    callback done;
-
-    VerticalLayout {
-        PageHeader {
-            title: "Scan with your other device";
-            back => { root.done(); }
+            PickList { rows: App.export-codes; codes: true; vertical-stretch: 1; }
         }
         VerticalLayout {
-            padding: 16px;
-            spacing: 12px;
-            vertical-stretch: 1;
-            Hint {
-                text: "In Google Authenticator: Transfer accounts → Import accounts. On Android with this app: + → Scan QR code.";
-                horizontal-alignment: center;
-            }
-            qr-area := Rectangle {
-                vertical-stretch: 1;
-                min-height: 160px;
-                preferred-height: 320px;
-                Rectangle {
-                    x: (qr-area.width - self.width) / 2;
-                    y: (qr-area.height - self.height) / 2;
-                    width: min(qr-area.width, qr-area.height);
-                    height: min(qr-area.width, qr-area.height);
-                    background: white;
-                    border-radius: 6px;
-                }
-                Image {
-                    x: (qr-area.width - self.width) / 2;
-                    y: (qr-area.height - self.height) / 2;
-                    width: min(qr-area.width, qr-area.height) - 8px;
-                    height: min(qr-area.width, qr-area.height) - 8px;
-                    source: root.codes[root.index];
-                        image-rendering: pixelated;
-                        accessible-role: image;
-                    accessible-label: "Export QR code";
-                }
-            }
-            Text {
-                text: "Code " + (root.index + 1) + " of " + root.codes.length;
-                font-size: 15px;
-                font-weight: 600;
-                horizontal-alignment: center;
-                color: Palette.foreground;
-            }
-            Hint {
-                text: root.note;
-                horizontal-alignment: center;
-                visible: root.note != "";
-            }
+            spacing: 6px;
             HorizontalLayout {
-                spacing: 8px;
-                alignment: center;
+                SectionTitle { text: "Passwords (" + App.export-login-count + "/" + App.export-logins.length + ")"; horizontal-stretch: 1; }
+                LinkText { text: "All"; clicked => { App.pick-all(false, true); } }
+                Rectangle { width: 8px; }
+                LinkText { text: "None"; clicked => { App.pick-all(false, false); } }
+            }
+            PickList { rows: App.export-logins; codes: false; vertical-stretch: 1; }
+        }
+    }
+    HSeparator { }
+    HorizontalLayout {
+        spacing: 16px;
+        VerticalLayout {
+            spacing: 6px;
+            horizontal-stretch: 1;
+            SectionTitle { text: "QR codes"; }
+            Hint { text: "For Google Authenticator, this app on Android and most authenticators. 2FA codes only. Anyone who sees them can copy your accounts."; }
+            Rectangle { vertical-stretch: 1; }
+            HorizontalLayout {
+                alignment: start;
+                Button { text: "Show QR codes…"; enabled: App.export-code-count > 0; clicked => { App.export-qr(); } }
+            }
+        }
+        VSeparator { }
+        VerticalLayout {
+            spacing: 6px;
+            horizontal-stretch: 1;
+            SectionTitle { text: "Encrypted backup file"; }
+            Hint { text: "The selected codes and passwords, protected by a password (Argon2id + AES-256). Opens in this app on Android or another PC."; }
+            pw := LineEdit { input-type: password; placeholder-text: "Backup password (8+ characters)"; }
+            pw2 := LineEdit { input-type: password; placeholder-text: "Repeat password"; accepted => { root.submit(); } }
+            HorizontalLayout {
+                alignment: start;
                 Button {
-                    text: "Previous";
-                    enabled: root.index > 0;
-                    clicked => { root.index -= 1; }
-                }
-                if root.index < root.codes.length - 1: Button {
-                    text: "Next";
+                    text: "Save backup file…";
                     primary: true;
-                    clicked => { root.index += 1; }
-                }
-                if root.index >= root.codes.length - 1: Button {
-                    text: "Done";
-                    primary: true;
-                    clicked => { root.done(); }
+                    enabled: App.export-code-count + App.export-login-count > 0;
+                    clicked => { root.submit(); }
                 }
             }
         }
     }
 }
 
-// ------------------------------------------------------------------ settings
+component QrDialog inherits DialogFrame {
+    title: App.qr-title;
+    dialog-width: 480px;
+    Hint {
+        text: App.qr-account-id >= 0
+            ? "Scan it with Google Authenticator, this app on Android or any other authenticator app."
+            : "In Google Authenticator: Transfer accounts → Import accounts. In this app on Android: + → Scan QR code.";
+        horizontal-alignment: center;
+    }
+    qr-area := Rectangle {
+        min-height: 180px;
+        preferred-height: 320px;
+        vertical-stretch: 1;
+        Rectangle {
+            x: (qr-area.width - self.width) / 2;
+            y: (qr-area.height - self.height) / 2;
+            width: min(qr-area.width, qr-area.height);
+            height: self.width;
+            background: white;
+            border-radius: 6px;
+            if App.qr-images.length > 0: Image {
+                width: parent.width - 16px;
+                height: parent.height - 16px;
+                source: App.qr-images[App.qr-index];
+                image-rendering: pixelated;
+                accessible-role: image;
+                accessible-label: "QR code";
+            }
+        }
+    }
+    if App.qr-images.length > 1: Text {
+        text: "Code " + (App.qr-index + 1) + " of " + App.qr-images.length;
+        font-weight: 600;
+        horizontal-alignment: center;
+        color: Palette.foreground;
+    }
+    Hint { text: App.qr-note; horizontal-alignment: center; visible: App.qr-note != ""; }
+    Text {
+        text: "Anyone who sees this code can copy the account. Close it when you are done.";
+        font-size: 12px;
+        color: Theme.warn;
+        wrap: word-wrap;
+        horizontal-alignment: center;
+    }
+    Messages { }
+    HorizontalLayout {
+        spacing: 8px;
+        if App.qr-account-id >= 0: Button { text: "Copy setup key"; clicked => { App.copy-secret(App.qr-account-id); } }
+        Rectangle { horizontal-stretch: 1; }
+        if App.qr-images.length > 1: Button { text: "Previous"; enabled: App.qr-index > 0; clicked => { App.qr-index -= 1; } }
+        if App.qr-index < App.qr-images.length - 1: Button { text: "Next"; primary: true; clicked => { App.qr-index += 1; } }
+        if App.qr-index >= App.qr-images.length - 1: Button { text: "Done"; primary: true; clicked => { App.close-dialog(); } }
+    }
+}
 
-component SettingsPage inherits Rectangle {
-    in property <string> status;
-    in property <bool> status-error;
-    in property <string> data-path;
-    in property <string> version;
-    in-out property <int> auto-lock-index;
-    in-out property <int> clipboard-index;
-    in-out property <bool> hide-from-capture;
-    callback back;
-    callback changed;
-    callback change-pin(string, string, string);
+component PinDialog inherits DialogFrame {
+    title: "Confirm it's you";
+    dialog-width: 400px;
+    focus-frame: false;
+    function submit() {
+        App.pin-entered(pin.text);
+        pin.text = "";
+    }
+    Hint { text: App.pin-reason; }
+    pin := LineEdit {
+        input-type: password;
+        placeholder-text: "PIN or password";
+        init => { self.focus(); }
+        accepted => { root.submit(); }
+    }
+    Messages { }
+    DialogButtons {
+        Button { text: "Cancel"; clicked => { App.close-dialog(); } }
+        Button { text: "Continue"; primary: true; clicked => { root.submit(); } }
+    }
+}
 
-    function submit-pin-change() {
-        root.change-pin(current.text, new-pin.text, confirm.text);
+component RestoreDialog inherits DialogFrame {
+    title: "Restore backup";
+    dialog-width: 400px;
+    focus-frame: false;
+    function submit() {
+        App.restore-password(pw.text);
+        pw.text = "";
+    }
+    Hint { text: "Enter the password used when the backup was created. Codes and passwords are added to the ones already here; nothing is deleted."; }
+    pw := LineEdit {
+        input-type: password;
+        placeholder-text: "Backup password";
+        init => { self.focus(); }
+        accepted => { root.submit(); }
+    }
+    Messages { }
+    DialogButtons {
+        Button { text: "Cancel"; clicked => { App.close-dialog(); } }
+        Button { text: "Restore"; primary: true; clicked => { root.submit(); } }
+    }
+}
+
+component SettingsDialog inherits DialogFrame {
+    title: "Settings";
+    dialog-width: 560px;
+    function submit-pin() {
+        App.change-pin(current.text, new-pin.text, confirm.text);
         current.text = "";
         new-pin.text = "";
         confirm.text = "";
     }
-
-    VerticalLayout {
-        PageHeader {
-            title: "Settings";
-            back => { root.back(); }
-        }
-        ScrollView {
-            vertical-stretch: 1;
-            VerticalLayout {
+    Messages { }
+    ScrollView {
+        vertical-stretch: 1;
+        min-height: 200px;
+        preferred-height: content.preferred-height;
+        content := VerticalLayout {
+            alignment: start;
+            padding-right: 14px;
+            spacing: 8px;
+            SectionTitle { text: "Security"; }
+            HorizontalLayout {
+                spacing: 10px;
+                FieldLabel { text: "Lock automatically"; width: 150px; }
+                ComboBox {
+                    model: ["After 1 minute without use", "After 5 minutes without use", "After 15 minutes without use", "After 1 hour without use", "Never"];
+                    current-index <=> App.auto-lock-index;
+                    selected => { App.settings-changed(); }
+                }
+            }
+            HorizontalLayout {
+                spacing: 10px;
+                FieldLabel { text: "Clipboard"; width: 150px; }
+                ComboBox {
+                    model: ["Clear clipboard after 15 seconds", "Clear clipboard after 30 seconds", "Clear clipboard after 60 seconds", "Never clear clipboard"];
+                    current-index <=> App.clipboard-index;
+                    selected => { App.settings-changed(); }
+                }
+            }
+            Switch {
+                text: "Lock when Windows locks or goes to sleep";
+                checked <=> App.lock-on-session-lock;
+                toggled => { App.settings-changed(); }
+            }
+            Switch {
+                text: "Hide this window from screenshots and screen sharing";
+                checked <=> App.hide-from-capture;
+                toggled => { App.settings-changed(); }
+            }
+            HSeparator { }
+            SectionTitle { text: "Windows"; }
+            Switch {
+                text: "Keep running in the notification area when closed";
+                checked <=> App.close-to-tray;
+                enabled: App.tray-supported;
+                toggled => { App.settings-changed(); }
+            }
+            Switch {
+                text: "Start with Windows (locked, in the notification area)";
+                checked <=> App.start-with-windows;
+                enabled: App.tray-supported;
+                toggled => { App.start-with-windows-changed(self.checked); }
+            }
+            HSeparator { }
+            SectionTitle { text: "Browser extension"; }
+            Switch {
+                text: "Ask me in this window before giving a password to the browser";
+                checked <=> App.confirm-browser-access;
+                toggled => { App.settings-changed(); }
+            }
+            HorizontalLayout {
                 alignment: start;
-                padding: 14px;
-                spacing: 12px;
-                if root.status != "": StatusText { text: root.status; error: root.status-error; }
-                Card {
-                    SectionTitle { text: "Security"; }
-                    Text { text: "Lock automatically"; color: Palette.foreground; font-size: 13px; }
-                    ComboBox {
-                        model: ["After 1 minute without activity", "After 5 minutes without activity", "After 15 minutes without activity", "After 1 hour without activity", "Never"];
-                        current-index <=> root.auto-lock-index;
-                        selected => { root.changed(); }
+                Button { text: "Browser integration…"; clicked => { App.open-browser(); } }
+            }
+            HSeparator { }
+            SectionTitle { text: "Change PIN"; }
+            current := LineEdit { input-type: password; placeholder-text: "Current PIN or password"; }
+            HorizontalLayout {
+                spacing: 8px;
+                new-pin := LineEdit { input-type: password; placeholder-text: "New PIN or password"; }
+                confirm := LineEdit { input-type: password; placeholder-text: "Repeat new PIN"; accepted => { root.submit-pin(); } }
+            }
+            HorizontalLayout {
+                alignment: start;
+                Button { text: "Change PIN"; clicked => { root.submit-pin(); } }
+            }
+        }
+    }
+}
+
+component BrowserDialog inherits DialogFrame {
+    title: "Browser integration";
+    dialog-width: 600px;
+    Messages { }
+    ScrollView {
+        vertical-stretch: 1;
+        min-height: 200px;
+        preferred-height: content.preferred-height;
+        content := VerticalLayout {
+            alignment: start;
+            padding-right: 14px;
+            spacing: 8px;
+            Hint {
+                text: "The Authenticator extension fills in your saved logins and 2FA codes on websites. It talks only to this app, on this PC, and only while the app is unlocked. Nothing goes over the internet.";
+            }
+            Switch {
+                text: "Allow the browser extension to connect";
+                checked <=> App.browser-enabled;
+                toggled => { App.browser-toggled(self.checked); }
+            }
+            if App.browser-status != "": Text {
+                text: App.browser-status;
+                wrap: word-wrap;
+                font-size: 12px;
+                color: App.browser-status-error ? Theme.danger : Theme.dim;
+            }
+            if App.browser-enabled: VerticalLayout {
+                spacing: 8px;
+                SectionTitle { text: "Install the extension (once per browser)"; }
+                Hint { text: "Works in Chromium-based browsers: Thorium, Chrome, Edge, Brave, Vivaldi, Opera."; }
+                Text { text: "1. Open the extensions page (thorium://extensions, chrome://extensions or edge://extensions)."; wrap: word-wrap; font-size: 12px; color: Palette.foreground; }
+                Text { text: "2. Turn on \"Developer mode\"."; wrap: word-wrap; font-size: 12px; color: Palette.foreground; }
+                Text { text: "3. Click \"Load unpacked\" and choose this folder:"; wrap: word-wrap; font-size: 12px; color: Palette.foreground; }
+                HorizontalLayout {
+                    spacing: 6px;
+                    Rectangle {
+                        border-radius: 4px;
+                        background: Theme.panel;
+                        border-width: 1px;
+                        border-color: Palette.border;
+                        height: 30px;
+                        horizontal-stretch: 1;
+                        Text { x: 8px; width: parent.width - 16px; text: App.browser-folder; font-size: 12px; overflow: elide; color: Palette.foreground; }
                     }
-                    Text { text: "Copied codes"; color: Palette.foreground; font-size: 13px; }
-                    ComboBox {
-                        model: ["Clear clipboard after 15 seconds", "Clear clipboard after 30 seconds", "Clear clipboard after 60 seconds", "Never clear clipboard"];
-                        current-index <=> root.clipboard-index;
-                        selected => { root.changed(); }
-                    }
-                    Switch {
-                        text: "Hide from screen capture";
-                        checked <=> root.hide-from-capture;
-                        toggled => { root.changed(); }
-                    }
-                    Hint { text: "Screenshots, recordings and screen sharing show this window as blank."; }
+                    Button { text: "Copy"; clicked => { App.browser-copy-path(); } }
+                    Button { text: "Open folder"; clicked => { App.browser-open-folder(); } }
                 }
-                Card {
-                    SectionTitle { text: "Change PIN"; }
-                    current := LineEdit { input-type: password; placeholder-text: "Current PIN or password"; }
-                    new-pin := LineEdit { input-type: password; placeholder-text: "New PIN or password"; }
-                    confirm := LineEdit {
-                        input-type: password;
-                        placeholder-text: "Repeat new PIN or password";
-                        accepted => { root.submit-pin-change(); }
+                Text { text: "4. The extension opens its settings: click \"Connect\" there, then \"Allow\" here if both show the same code."; wrap: word-wrap; font-size: 12px; color: Palette.foreground; }
+                Hint { text: "Shortcut on a login page: Ctrl+Shift+U fills the login (and the 2FA code on the next page)."; }
+                HSeparator { }
+                SectionTitle { text: "Connected browsers"; }
+                if App.browser-clients.length == 0: Hint { text: "None yet."; }
+                for client in App.browser-clients: HorizontalLayout {
+                    spacing: 8px;
+                    height: 32px;
+                    VerticalLayout { alignment: center; Icon { icon: Icons.extension; size: 16px; fill: Theme.brand; } }
+                    VerticalLayout {
+                        alignment: center;
+                        horizontal-stretch: 1;
+                        Text { text: client.name; color: Palette.foreground; overflow: elide; }
+                        Text { text: client.detail; font-size: 11px; color: Theme.dim; overflow: elide; }
                     }
-                    Button {
-                        text: "Change PIN";
-                        clicked => { root.submit-pin-change(); }
-                    }
-                }
-                Card {
-                    SectionTitle { text: "About"; }
-                    Hint { text: "Authenticator " + root.version + ". Works completely offline: nothing is sent over the internet."; }
-                    Hint { text: "Data file (encrypted): " + root.data-path; }
-                    Hint { text: "Keyboard: Ctrl+N add account, Ctrl+V paste screenshot, Ctrl+L lock, Esc go back."; }
-                    AboutSlint { }
+                    Button { text: "Disconnect"; clicked => { App.browser-remove(client.id); } }
                 }
             }
         }
     }
+}
+
+component PairDialog inherits DialogFrame {
+    title: "Connect a browser?";
+    dialog-width: 420px;
+    closable: false;
+    Text {
+        text: "\"" + App.pair-name + "\" wants to use your saved logins. Allow it only if you just clicked \"Connect\" in the Authenticator extension and it shows the same code:";
+        wrap: word-wrap;
+        color: Palette.foreground;
+    }
+    Text {
+        text: App.pair-code;
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: 3px;
+        horizontal-alignment: center;
+        color: Theme.brand;
+    }
+    DialogButtons {
+        Button { text: "Deny"; clicked => { App.pair-answer(false); } }
+        Button { text: "Allow"; primary: true; clicked => { App.pair-answer(true); } }
+    }
+}
+
+component AccessDialog inherits DialogFrame {
+    title: "Give a password to the browser?";
+    dialog-width: 420px;
+    closable: false;
+    Text { text: App.access-text; wrap: word-wrap; color: Palette.foreground; }
+    DialogButtons {
+        Button { text: "Deny"; clicked => { App.access-answer(false); } }
+        Button { text: "Allow"; primary: true; clicked => { App.access-answer(true); } }
+    }
+}
+
+component AboutDialog inherits DialogFrame {
+    title: "About Authenticator";
+    dialog-width: 520px;
+    HorizontalLayout {
+        spacing: 14px;
+        BrandMark { size: 48px; }
+        VerticalLayout {
+            alignment: center;
+            Text { text: "Authenticator " + App.version; font-size: 15px; font-weight: 600; color: Palette.foreground; }
+            Hint { text: "2FA codes and passwords, completely offline."; }
+        }
+    }
+    Hint { text: "Data file (encrypted): " + App.data-path; }
+    SectionTitle { text: "Keyboard"; }
+    Hint {
+        text: "Ctrl+N add code · Ctrl+Shift+N add password · Ctrl+F search · Ctrl+1 / Ctrl+2 switch lists\nEnter or double-click: copy code / password · Ctrl+C copy · Ctrl+B copy username · Ctrl+T copy 2FA code of a login · Ctrl+U open website · Ctrl+E edit · Del delete\nCtrl+V paste a QR code screenshot · Ctrl+G password generator · Ctrl+L lock · Ctrl+W hide to the notification area · Ctrl+Q quit";
+    }
+    AboutSlint { }
 }
 
 // ------------------------------------------------------------------ window
@@ -850,303 +1968,141 @@ component SettingsPage inherits Rectangle {
 export component AppWindow inherits Window {
     title: "Authenticator";
     icon: @image-url("../assets/icon.png");
-    preferred-width: 420px;
-    preferred-height: 680px;
-    min-width: 340px;
-    min-height: 480px;
+    preferred-width: 980px;
+    preferred-height: 640px;
+    min-width: 760px;
+    min-height: 520px;
     background: Palette.background;
-    default-font-size: 14px;
+    default-font-size: 13px;
 
-    in-out property <Page> page: Page.lock;
-    in property <[EntryRow]> entries;
-    in property <int> total-entries;
-    in-out property <string> search;
-    in property <bool> busy;
-    in property <string> busy-text;
-    in-out property <string> lock-error;
-    in property <string> toast-text;
-    in property <bool> toast-visible;
-    in-out property <string> status-text;
-    in-out property <bool> status-error;
-    in property <[image]> export-qrs;
-    in-out property <int> export-index;
-    in property <string> export-note;
-    in-out property <int> auto-lock-index;
-    in-out property <int> clipboard-index;
-    in-out property <bool> hide-from-capture;
-    in property <string> data-path;
-    in property <string> version;
-    in property <bool> can-scan-screen: true;
-    in-out property <bool> restore-dialog;
-    in-out property <int> edit-id: -1;
-    in-out property <string> edit-issuer;
-    in-out property <string> edit-name;
-    property <bool> confirm-delete;
+    property <bool> unlocked: App.page == Page.main;
+    property <bool> free: unlocked && App.dialog == Dialog.none && !App.busy;
 
-    callback create-pin(string, string);
-    callback unlock(string);
-    callback reset-all(string);
-    callback lock();
-    callback search-changed(string);
-    callback copy-code(int);
-    callback next-hotp(int);
-    callback rename-entry(int, string, string);
-    callback delete-entry(int);
-    callback paste-image();
-    callback scan-screen();
-    callback open-image();
-    callback add-manual(string, string, string, int, int, int, string);
-    callback add-link(string);
-    callback restore-backup();
-    callback restore-backup-password(string);
-    callback cancel-restore();
-    callback show-export-qr();
-    callback close-export-qr();
-    callback save-backup(string, string);
-    callback settings-changed();
-    callback change-pin(string, string, string);
+    public function focus-list() { if (main.visible) { main.focus-list(); } }
+    public function focus-pin() { if (lock-page.visible) { lock-page.focus-pin(); } }
 
-    function go(p: Page) {
-        root.status-text = "";
-        root.page = p;
-        shortcuts.focus();
+    function open-add-code() {
+        App.section = Section.codes;
+        App.section-changed();
+        App.dialog-error = "";
+        App.dialog-info = "";
+        App.dialog = Dialog.add-code;
     }
 
-    property <bool> unlocked: root.page != Page.setup && root.page != Page.lock;
-
-    shortcuts := FocusScope {
-        key-pressed(event) => {
-            if (root.busy || !root.unlocked) {
-                return reject;
+    MenuBar {
+        visible: root.unlocked;
+        Menu {
+            title: "File";
+            MenuItem { title: "Lock"; shortcut: @keys(Control + L); activated => { App.lock(); } }
+            MenuSeparator { }
+            MenuItem { title: "Export / back up…"; enabled: root.free; activated => { App.open-export(); } }
+            MenuItem { title: "Restore backup…"; enabled: root.free; activated => { App.restore-backup(); } }
+            MenuItem { title: "Import passwords from browser (CSV)…"; enabled: root.free; activated => { App.import-csv(); } }
+            MenuSeparator { }
+            MenuItem { title: "Settings…"; enabled: root.free; activated => { App.open-settings(); } }
+            MenuSeparator { }
+            MenuItem { title: "Hide to notification area"; shortcut: @keys(Control + W); enabled: App.tray-supported; activated => { App.hide-window(); } }
+            MenuItem { title: "Quit"; shortcut: @keys(Control + Q); activated => { App.quit(); } }
+        }
+        Menu {
+            title: "Entry";
+            MenuItem { title: "Add 2FA code…"; shortcut: @keys(Control + N); enabled: root.free; activated => { root.open-add-code(); } }
+            MenuItem {
+                title: "Add password…";
+                shortcut: @keys(Control + Shift + N);
+                enabled: root.free;
+                activated => { App.section = Section.passwords; App.section-changed(); App.new-login(); }
             }
-            if (event.modifiers.control && (event.text == "v" || event.text == "V")) {
-                if (root.page == Page.list || root.page == Page.add) {
-                    root.paste-image();
-                    return accept;
+            MenuSeparator { }
+            MenuItem {
+                title: "Edit…";
+                enabled: root.free && (App.section == Section.codes ? App.code-index >= 0 : App.login-index >= 0);
+                activated => {
+                    if (App.section == Section.codes) { App.edit-code(App.codes[App.code-index].id); } else { App.edit-login(App.logins[App.login-index].id); }
                 }
             }
-            if (event.modifiers.control && (event.text == "l" || event.text == "L")) {
-                root.lock();
-                return accept;
-            }
-            if (event.modifiers.control && (event.text == "n" || event.text == "N")) {
-                root.go(Page.add);
-                return accept;
-            }
-            if (event.text == Key.Escape) {
-                if (root.edit-id >= 0) {
-                    root.edit-id = -1;
-                    return accept;
-                }
-                if (root.page == Page.export-qr) {
-                    root.close-export-qr();
-                    return accept;
-                }
-                if (root.page != Page.list) {
-                    root.go(Page.list);
-                    return accept;
+            MenuItem {
+                title: "Delete…";
+                enabled: root.free && (App.section == Section.codes ? App.code-index >= 0 : App.login-index >= 0);
+                activated => {
+                    if (App.section == Section.codes) { App.ask-delete-code(App.codes[App.code-index].id); } else { App.ask-delete-login(App.logins[App.login-index].id); }
                 }
             }
-            reject
-        }
-
-        if root.page == Page.setup: SetupPage {
-            error: root.lock-error;
-            create(pin, confirm) => { root.create-pin(pin, confirm); }
-        }
-        if root.page == Page.lock: LockPage {
-            error: root.lock-error;
-            unlock(pin) => { root.unlock(pin); }
-            reset(text) => { root.reset-all(text); }
-        }
-        if root.page == Page.list: ListPage {
-            entries: root.entries;
-            total: root.total-entries;
-            search <=> root.search;
-            search-edited(text) => { root.search-changed(text); }
-            add => { root.go(Page.add); }
-            export => { root.go(Page.export); }
-            settings => { root.go(Page.settings); }
-            lock => { root.lock(); }
-            copy(id) => { root.copy-code(id); }
-            next(id) => { root.next-hotp(id); }
-            edit(row) => {
-                root.edit-issuer = row.issuer;
-                root.edit-name = row.name;
-                root.confirm-delete = false;
-                root.edit-id = row.id;
+            MenuSeparator { }
+            MenuItem {
+                title: "Show QR code…";
+                enabled: root.free && App.section == Section.codes && App.code-index >= 0;
+                activated => { App.show-code-qr(App.codes[App.code-index].id); }
             }
-            init => { shortcuts.focus(); }
+            MenuItem {
+                title: "Open website";
+                enabled: root.free && App.section == Section.passwords && App.login-index >= 0;
+                activated => { App.open-url(App.logins[App.login-index].id); }
+            }
         }
-        if root.page == Page.add: AddPage {
-            status: root.status-text;
-            status-error: root.status-error;
-            can-scan-screen: root.can-scan-screen;
-            back => { root.go(Page.list); }
-            paste-image => { root.paste-image(); }
-            scan-screen => { root.scan-screen(); }
-            open-image => { root.open-image(); }
-            add-manual(a, b, c, d, e, f, g) => { root.add-manual(a, b, c, d, e, f, g); }
-            add-link(text) => { root.add-link(text); }
-            restore-backup => { root.restore-backup(); }
+        Menu {
+            title: "View";
+            MenuItem { title: "2FA codes"; shortcut: @keys(Control + "1"); activated => { App.section = Section.codes; App.section-changed(); } }
+            MenuItem { title: "Passwords"; shortcut: @keys(Control + "2"); activated => { App.section = Section.passwords; App.section-changed(); } }
+            MenuSeparator { }
+            MenuItem { title: "Search"; shortcut: @keys(Control + F); enabled: root.free; activated => { main.focus-search(); } }
         }
-        if root.page == Page.export: ExportPage {
-            status: root.status-text;
-            status-error: root.status-error;
-            total: root.total-entries;
-            back => { root.go(Page.list); }
-            show-qr => { root.show-export-qr(); }
-            save-backup(a, b) => { root.save-backup(a, b); }
+        Menu {
+            title: "Tools";
+            MenuItem { title: "Password generator…"; shortcut: @keys(Control + G); enabled: root.free; activated => { App.dialog-error = ""; App.generator-changed(); App.dialog = Dialog.generator; } }
+            MenuSeparator { }
+            MenuItem { title: "Paste QR code screenshot"; enabled: root.free; activated => { App.section = Section.codes; App.section-changed(); App.paste-image(); } }
+            MenuItem { title: "Scan screen for a QR code"; enabled: root.free && App.can-scan-screen; activated => { App.section = Section.codes; App.section-changed(); App.scan-screen(); } }
+            MenuItem { title: "Open QR code image…"; enabled: root.free; activated => { App.section = Section.codes; App.section-changed(); App.open-image(); } }
+            MenuSeparator { }
+            MenuItem { title: "Browser integration…"; enabled: root.free; activated => { App.open-browser(); } }
         }
-        if root.page == Page.export-qr: ExportQrPage {
-            codes: root.export-qrs;
-            index <=> root.export-index;
-            note: root.export-note;
-            done => { root.close-export-qr(); }
-        }
-        if root.page == Page.settings: SettingsPage {
-            status: root.status-text;
-            status-error: root.status-error;
-            data-path: root.data-path;
-            version: root.version;
-            auto-lock-index <=> root.auto-lock-index;
-            clipboard-index <=> root.clipboard-index;
-            hide-from-capture <=> root.hide-from-capture;
-            back => { root.go(Page.list); }
-            changed => { root.settings-changed(); }
-            change-pin(a, b, c) => { root.change-pin(a, b, c); }
+        Menu {
+            title: "Help";
+            MenuItem { title: "About Authenticator"; enabled: root.unlocked; activated => { App.dialog = Dialog.about; } }
         }
     }
 
-    // Edit / delete dialog.
-    if root.edit-id >= 0: Rectangle {
-        background: #00000080;
-        TouchArea { }
-        Rectangle {
-            width: min(parent.width - 32px, 380px);
-            height: dialog.preferred-height;
-            background: Palette.background;
-            border-radius: 8px;
-            border-width: 1px;
-            border-color: Palette.border;
-            dialog := VerticalLayout {
-                padding: 16px;
-                spacing: 10px;
-                SectionTitle { text: root.confirm-delete ? "Delete account?" : "Edit account"; }
-                if !root.confirm-delete: LineEdit {
-                    placeholder-text: "Service";
-                    text <=> root.edit-issuer;
-                }
-                if !root.confirm-delete: LineEdit {
-                    placeholder-text: "Account";
-                    text <=> root.edit-name;
-                }
-                if root.confirm-delete: Text {
-                    text: "\"" + root.edit-issuer + "\" will be removed from this PC. Make sure you can still sign in to it another way (e.g. this account is also on another device), or you may lose access.";
-                    wrap: word-wrap;
-                    font-size: 13px;
-                    color: Theme.danger;
-                }
-                HorizontalLayout {
-                    spacing: 8px;
-                    if !root.confirm-delete: Button {
-                        text: "Delete…";
-                        clicked => { root.confirm-delete = true; }
-                    }
-                    Rectangle { horizontal-stretch: 1; }
-                    Button {
-                        text: "Cancel";
-                        clicked => {
-                            root.edit-id = -1;
-                            shortcuts.focus();
-                        }
-                    }
-                    if !root.confirm-delete: Button {
-                        text: "Save";
-                        primary: true;
-                        clicked => {
-                            root.rename-entry(root.edit-id, root.edit-issuer, root.edit-name);
-                            root.edit-id = -1;
-                            shortcuts.focus();
-                        }
-                    }
-                    if root.confirm-delete: Button {
-                        text: "Delete";
-                        primary: true;
-                        clicked => {
-                            root.delete-entry(root.edit-id);
-                            root.edit-id = -1;
-                            shortcuts.focus();
-                        }
-                    }
-                }
-            }
-        }
+    if App.page == Page.setup: SetupPage { }
+    lock-page := LockPage {
+        visible: App.page == Page.lock;
+    }
+    main := MainPage {
+        visible: App.page == Page.main;
     }
 
-    // Backup password dialog.
-    if root.restore-dialog: Rectangle {
-        background: #00000080;
-        TouchArea { }
-        Rectangle {
-            width: min(parent.width - 32px, 380px);
-            height: restore-layout.preferred-height;
-            background: Palette.background;
-            border-radius: 8px;
-            border-width: 1px;
-            border-color: Palette.border;
-            restore-layout := VerticalLayout {
-                padding: 16px;
-                spacing: 10px;
-                SectionTitle { text: "Backup password"; }
-                Hint { text: "Enter the password that was used when the backup was created."; }
-                restore-pw := LineEdit {
-                    input-type: password;
-                    placeholder-text: "Password";
-                    init => { self.focus(); }
-                    accepted => {
-                        root.restore-backup-password(restore-pw.text);
-                        restore-pw.text = "";
-                    }
-                }
-                HorizontalLayout {
-                    spacing: 8px;
-                    alignment: end;
-                    Button {
-                        text: "Cancel";
-                        clicked => { root.cancel-restore(); }
-                    }
-                    Button {
-                        text: "Restore";
-                        primary: true;
-                        clicked => {
-                            root.restore-backup-password(restore-pw.text);
-                            restore-pw.text = "";
-                        }
-                    }
-                }
-            }
-        }
-    }
+    if App.dialog == Dialog.add-code: AddCodeDialog { }
+    if App.dialog == Dialog.edit-code: EditCodeDialog { }
+    if App.dialog == Dialog.edit-login: EditLoginDialog { }
+    if App.dialog == Dialog.generator: GeneratorDialog { }
+    if App.dialog == Dialog.export: ExportDialog { }
+    if App.dialog == Dialog.qr: QrDialog { }
+    if App.dialog == Dialog.pin: PinDialog { }
+    if App.dialog == Dialog.restore: RestoreDialog { }
+    if App.dialog == Dialog.settings: SettingsDialog { }
+    if App.dialog == Dialog.browser: BrowserDialog { }
+    if App.dialog == Dialog.pair: PairDialog { }
+    if App.dialog == Dialog.confirm-access: AccessDialog { }
+    if App.dialog == Dialog.about: AboutDialog { }
 
-    if root.toast-visible: Rectangle {
+    if App.toast-visible: Rectangle {
         x: (parent.width - self.width) / 2;
-        y: parent.height - 72px;
+        y: parent.height - 64px;
         width: min(toast-label.preferred-width + 36px, parent.width - 32px);
-        height: 40px;
-        border-radius: 20px;
-        background: #202020f0;
+        height: 36px;
+        border-radius: 18px;
+        background: App.toast-error ? #8b1a12f0 : #202020f0;
         toast-label := Text {
-            text: root.toast-text;
+            text: App.toast-text;
             color: white;
-            font-size: 13px;
+            font-size: 12px;
             horizontal-alignment: center;
             overflow: elide;
             width: parent.width - 24px;
         }
     }
 
-    if root.busy: Rectangle {
+    if App.busy: Rectangle {
         background: #00000070;
         TouchArea { }
         VerticalLayout {
@@ -1157,7 +2113,7 @@ export component AppWindow inherits Window {
                 Spinner { indeterminate: true; width: 40px; height: 40px; }
             }
             Text {
-                text: root.busy-text;
+                text: App.busy-text;
                 color: white;
                 font-size: 14px;
                 horizontal-alignment: center;

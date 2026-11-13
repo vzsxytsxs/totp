@@ -46,10 +46,10 @@ fn decode_luma(width: usize, height: usize, luma: &[u8], invert: bool) -> Vec<St
     });
     let mut out: Vec<String> = Vec::new();
     for grid in img.detect_grids() {
-        if let Ok((_, content)) = grid.decode() {
-            if !out.contains(&content) {
-                out.push(content);
-            }
+        if let Ok((_, content)) = grid.decode()
+            && !out.contains(&content)
+        {
+            out.push(content);
         }
     }
     out
@@ -67,8 +67,8 @@ pub struct QrBitmap {
 }
 
 pub fn encode(text: &str) -> Result<QrBitmap, String> {
-    let code = qrcode::QrCode::with_error_correction_level(text.as_bytes(), qrcode::EcLevel::M)
-        .map_err(|e| e.to_string())?;
+    let code =
+        qrcode::QrCode::with_error_correction_level(text.as_bytes(), qrcode::EcLevel::M).map_err(|e| e.to_string())?;
     let n = code.width();
     let colors = code.to_colors();
     let quiet = 4;
@@ -114,6 +114,7 @@ mod tests {
         use crate::otp::{Account, Algorithm, OtpKind, Secret};
         let accounts: Vec<Account> = (0..12)
             .map(|i| Account {
+                id: String::new(),
                 kind: OtpKind::Totp,
                 issuer: format!("Service number {i}"),
                 name: format!("someone.long.name{i}@example.com"),

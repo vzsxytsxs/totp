@@ -2,11 +2,17 @@
 
 pub mod backup;
 pub mod base32;
+pub mod browser;
 pub mod crypto;
+pub mod csv;
+pub mod login;
+pub mod merge;
 pub mod migration;
 pub mod otp;
 pub mod platform;
+pub mod prefs;
 pub mod qr;
+pub mod tray;
 pub mod vault;
 
 use otp::Account;

@@ -96,6 +96,10 @@ fn default_period() -> u32 {
 /// shared with the Android app.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Account {
+    /// Stable random id (hex). Empty in backups written before version 2.0;
+    /// the app assigns one when the account is stored.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub id: String,
     #[serde(rename = "type", default)]
     pub kind: OtpKind,
     #[serde(default)]
@@ -133,10 +137,7 @@ impl Account {
 
     /// Same account (same secret and labels)? Used to skip duplicates on import.
     pub fn same_as(&self, other: &Account) -> bool {
-        self.secret == other.secret
-            && self.kind == other.kind
-            && self.issuer == other.issuer
-            && self.name == other.name
+        self.secret == other.secret && self.kind == other.kind && self.issuer == other.issuer && self.name == other.name
     }
 
     pub fn display_title(&self) -> String {
@@ -145,6 +146,38 @@ impl Account {
             (true, false) => self.name.clone(),
             (true, true) => "(no name)".into(),
         }
+    }
+
+    /// Standard `otpauth://` link for this account (what a QR code for a
+    /// single account contains). Readable by practically every authenticator.
+    pub fn to_otpauth(&self) -> String {
+        let kind = match self.kind {
+            OtpKind::Totp => "totp",
+            OtpKind::Hotp => "hotp",
+        };
+        let label = match (self.issuer.is_empty(), self.name.is_empty()) {
+            (false, false) => format!("{}:{}", percent_encode(&self.issuer), percent_encode(&self.name)),
+            (false, true) => format!("{}:", percent_encode(&self.issuer)),
+            _ => percent_encode(&self.name),
+        };
+        let mut secret = self.secret.to_base32();
+        let mut uri = format!("otpauth://{kind}/{label}?secret={secret}");
+        secret.zeroize();
+        if !self.issuer.is_empty() {
+            uri.push_str(&format!("&issuer={}", percent_encode(&self.issuer)));
+        }
+        if self.algorithm != Algorithm::Sha1 {
+            uri.push_str(&format!("&algorithm={}", self.algorithm.name()));
+        }
+        if self.digits != 6 {
+            uri.push_str(&format!("&digits={}", self.digits));
+        }
+        match self.kind {
+            OtpKind::Totp if self.period != 30 => uri.push_str(&format!("&period={}", self.period)),
+            OtpKind::Hotp => uri.push_str(&format!("&counter={}", self.counter)),
+            _ => {}
+        }
+        uri
     }
 
     /// Code for the given unix time (TOTP) or for the stored counter (HOTP).
@@ -188,10 +221,7 @@ pub fn hotp(secret: &[u8], counter: u64, digits: u32, algorithm: Algorithm) -> S
 }
 
 pub fn now_unix() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
 /// Percent-decodes a URI component. `plus_is_space` applies to query values.
@@ -259,8 +289,7 @@ pub fn parse_otpauth(uri: &str) -> Result<Account, String> {
             "secret" => secret = Some(base32::decode(&value)?),
             "issuer" if !value.trim().is_empty() => issuer = value.trim().to_string(),
             "algorithm" => {
-                algorithm = Algorithm::parse(&value)
-                    .ok_or_else(|| format!("Unsupported algorithm '{value}'"))?
+                algorithm = Algorithm::parse(&value).ok_or_else(|| format!("Unsupported algorithm '{value}'"))?
             }
             "digits" => digits = value.trim().parse().map_err(|_| "Invalid digits value")?,
             "period" => period = value.trim().parse().map_err(|_| "Invalid period value")?,
@@ -273,6 +302,7 @@ pub fn parse_otpauth(uri: &str) -> Result<Account, String> {
         return Err("HOTP link has no counter".into());
     }
     let account = Account {
+        id: String::new(),
         kind,
         issuer,
         name,
@@ -284,6 +314,19 @@ pub fn parse_otpauth(uri: &str) -> Result<Account, String> {
     };
     account.validate()?;
     Ok(account)
+}
+
+/// Percent-encodes everything except RFC 3986 unreserved characters.
+pub fn percent_encode(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for b in input.bytes() {
+        if b.is_ascii_alphanumeric() || b"-._~".contains(&b) {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
 }
 
 pub fn strip_prefix_ci<'a>(s: &'a str, prefix: &str) -> Option<&'a str> {
@@ -304,10 +347,8 @@ mod tests {
 
     #[test]
     fn rfc4226_hotp() {
-        let expected = [
-            "755224", "287082", "359152", "969429", "338314", "254676", "287922", "162583", "399871",
-            "520489",
-        ];
+        let expected =
+            ["755224", "287082", "359152", "969429", "338314", "254676", "287922", "162583", "399871", "520489"];
         for (counter, code) in expected.iter().enumerate() {
             assert_eq!(hotp(SEED20, counter as u64, 6, Algorithm::Sha1), *code);
         }
@@ -325,6 +366,7 @@ mod tests {
         ];
         for (time, sha1, sha256, sha512) in cases {
             let mk = |secret: &[u8], algorithm| Account {
+                id: String::new(),
                 kind: OtpKind::Totp,
                 issuer: String::new(),
                 name: String::new(),
@@ -366,6 +408,20 @@ mod tests {
         assert!(parse_otpauth("https://example.com").is_err());
         let h = parse_otpauth("otpauth://hotp/x?secret=JBSWY3DPEHPK3PXP&counter=5").unwrap();
         assert_eq!(h.counter, 5);
+    }
+
+    #[test]
+    fn otpauth_roundtrip() {
+        for uri in [
+            "otpauth://totp/GitHub:octocat?secret=JBSWY3DPEHPK3PXP&issuer=GitHub",
+            "otpauth://totp/Banco%20%C3%81gil:jo%C3%A3o%3Ax?secret=GEZDGNBVGY3TQOJQ&algorithm=SHA256&digits=8&period=60",
+            "otpauth://hotp/Legacy?secret=GEZDGNBVGY3TQOJQ&counter=3",
+            "otpauth://totp/Only%20Issuer:?secret=GEZDGNBVGY3TQOJQ&issuer=Only%20Issuer",
+        ] {
+            let a = parse_otpauth(uri).unwrap();
+            let again = parse_otpauth(&a.to_otpauth()).unwrap();
+            assert_eq!(again, a, "{uri} -> {}", a.to_otpauth());
+        }
     }
 
     #[test]

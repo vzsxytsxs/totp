@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Authenticator</title>
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="popup.js"></script>
+  </head>
+  <body class="popup">
+    <header>
+      <div class="brand"><img src="icons/32.png" alt="" />Authenticator</div>
+      <div class="site" id="site"></div>
+    </header>
+    <main>
+      <div id="message" class="hidden">
+        <div id="message-text"></div>
+        <div class="actions" id="message-actions"></div>
+      </div>
+      <div id="list" class="hidden"></div>
+      <form id="save" class="hidden" autocomplete="off">
+        <strong>Save this login in Authenticator</strong>
+        <label for="save-title">Title</label>
+        <input id="save-title" maxlength="256" />
+        <label for="save-user">User name or email</label>
+        <input id="save-user" maxlength="512" />
+        <label for="save-password">Password</label>
+        <input id="save-password" type="password" maxlength="4096" />
+        <div class="error" id="save-error"></div>
+        <div class="actions">
+          <button type="submit" class="primary">Save</button>
+          <button type="button" id="save-cancel">Cancel</button>
+        </div>
+      </form>
+    </main>
+    <footer>
+      <button class="link" id="save-open">Save login from this page</button>
+      <button class="link" id="options">Settings</button>
+    </footer>
+  </body>
+</html>

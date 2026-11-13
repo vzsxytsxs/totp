@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Authenticator",
+  "version": "2.0.0",
+  "description": "Fills in the logins and 2FA codes saved in the Authenticator app on this PC. Works offline.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtrI0XW8NGboetUFS+z4CGoY2XiznTdfiwozJln9qd6oZY4L835yy0igxmC1WmecJvgx9q1dEWICANDYdO5vmEgumvrz1AmZBSPXjkwt1ukk3nGbW24n7XEqkZwkzVeYnBs8xxUTx4bv23c8IQMMDlVzDLY6d6dABvAflRhaHZ/xq4+Rcj8CiSOhlrNuM3S6OPFqNcSEpd5VCHAaj6zcHNh1si1csFSEQDF4ot/lvFPmWNkrRlUzsKW40kzcFiIlSHt6prWCZuLVouNM03XaCntLQUPoocycwtKujuEiZNeq+ZP0uT8utOiQ/+24wn+HOtAib/PysWPVdMFjc2BdUjwIDAQAB",
+  "minimum_chrome_version": "116",
+  "permissions": ["nativeMessaging", "activeTab", "scripting", "storage"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": {
+    "default_title": "Authenticator",
+    "default_popup": "popup.html",
+    "default_icon": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png" }
+  },
+  "options_ui": { "page": "options.html", "open_in_tab": true },
+  "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "commands": {
+    "fill-login": {
+      "suggested_key": { "default": "Ctrl+Shift+U" },
+      "description": "Fill in the login (or the 2FA code) on this page"
+    }
+  }
+}

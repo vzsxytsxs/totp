@@ -1,0 +1,16 @@
+{
+  "format": "authenticator-backup",
+  "version": 1,
+  "kdf": {
+    "algorithm": "argon2id",
+    "memory_kib": 8192,
+    "iterations": 1,
+    "parallelism": 1,
+    "salt": "I/QIFro4P+KaOBxkwSbtDA=="
+  },
+  "cipher": {
+    "algorithm": "aes-256-gcm",
+    "nonce": "mBiKQKbrtrHrX6fe"
+  },
+  "data": "dSQI7mEeVmZ0QNeJpJwHMBgiqT1NtdztQy4CznkqmXMlajvuVJQGsfYkwtPeDDH/fFYp5VDkIpnhDeopD/LVBI9aL6WZjSfYpDVURJNJd+5hSI0h7fT77us1z2LHzz1dqGrewUd75iJ0O5mxuJPTPhLNXk/DaOPMlN312jHG1YbctHkWiAKA4/baMflilA2DyB43fD6/ebGPjZVTyXWuBNKNQQ0jVriCtmJfmydeuQEO5ndRyHuDeLycldC7++lDPkoqKOuaR+Vxtb1fvTB5ReEmN5rkTmOl1RUeMFBiSm49JBwZFKVSJ10vDct+6ri6uEf8Df/X6fPnBHfR01ZVEaf7ZPFcHj2+qZ/BhNmIEf+s0JuSfuPBY6xK3z/JazsIs+uyDQBDwLni0S/1H4jJ7oVuWIr3V9SFWsF6b6gTkwmvr685x3TxVm79Ou3/9iwcL1xQu8tMyFj6htmCZBMqeHsX+/7qqoj/+/NKyhOU8gdPECwXH2RxN68QyNqZWqTc774s8oKkDQzqZu37ZGgP4jRoMx+7AuKItMHb7PYxluivzjg3T/cKONMtRofnAF2VztQ4FOXPT9dSYlsplM6f5qm1g3xP4+McQnPQPeoFRjqVryZVwk/NyDh1htu80+YdI8RT96dNMwb8Xxpsp5kvgAtkwfG7OO4tvVbCIKOC6ioapb7gej0HnIOYdT227rydqGomezofQe2sB1GS5RLpWlvDoDBl3lP35HLm9mUyIC96E/3Tq3Vrong81ZhMDN1+qadITP/aS5zj/uNTYWem+qsE/gq7DXyaPKfJRSXsJwLssUez3zZl7yrD1mlrgIHWVNKqtnkTa6gZCEd0rx1LPtzh/5nnJjdxu7zJEE2AWbafvtjJK9DFTgZS6tBeGVFOimolLVnsDHUc6OwSq9igfO6j8Ml6T1swKkshZabiDnQMYxOmd/PnfsA5T008Fifb7n7OAgP7cIYSmnDqAlDISYQHmFZqd+HgHqtG/KsPEmjcE8OQv6msbZ0fd/utu7V11OVhfkDcg1PQsyMNVUybrZOE+ERB6+QCfq19s0mKiKze6zYhKC62DkpEa2mfar7fi3O4PI4vyrM6M2toBNckU1HqFNkX9dmu/BzVgsLbW6+9qM1jeRumM4Z3w3hJ"
+}

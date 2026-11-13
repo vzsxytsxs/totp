@@ -34,6 +34,40 @@ object OtpAuth {
             percentDecode(key, true).lowercase() to percentDecode(value, true)
         }
 
+    /** Percent-encodes everything except RFC 3986 unreserved characters. */
+    fun percentEncode(input: String): String {
+        val sb = StringBuilder()
+        for (b in input.toByteArray(Charsets.UTF_8)) {
+            val c = b.toInt() and 0xff
+            if ((c in 'a'.code..'z'.code) || (c in 'A'.code..'Z'.code) || (c in '0'.code..'9'.code) || c.toChar() in "-._~") {
+                sb.append(c.toChar())
+            } else {
+                sb.append('%').append("%02X".format(c))
+            }
+        }
+        return sb.toString()
+    }
+
+    /** Builds the `otpauth://` link for one account (same output as the Windows app). */
+    fun format(account: Account): String {
+        val label = when {
+            account.issuer.isNotEmpty() && account.name.isNotEmpty() ->
+                percentEncode(account.issuer) + ":" + percentEncode(account.name)
+            account.issuer.isNotEmpty() -> percentEncode(account.issuer) + ":"
+            else -> percentEncode(account.name)
+        }
+        val sb = StringBuilder("otpauth://").append(account.type.jsonName).append('/').append(label)
+            .append("?secret=").append(Base32.encode(account.secret))
+        if (account.issuer.isNotEmpty()) sb.append("&issuer=").append(percentEncode(account.issuer))
+        if (account.algorithm != HashAlgorithm.SHA1) sb.append("&algorithm=").append(account.algorithm.jsonName)
+        if (account.digits != 6) sb.append("&digits=").append(account.digits)
+        when (account.type) {
+            OtpType.TOTP -> if (account.period != 30) sb.append("&period=").append(account.period)
+            OtpType.HOTP -> sb.append("&counter=").append(account.counter)
+        }
+        return sb.toString()
+    }
+
     /** Parses `otpauth://totp/Issuer:name?secret=...&issuer=...`. */
     fun parse(uri: String): Account {
         val trimmed = uri.trim()

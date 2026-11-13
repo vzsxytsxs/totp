@@ -1,6 +1,7 @@
 //! Checks the shared test vectors in `docs/test-vectors` (also used by the
 //! Android test suite), so both apps stay compatible.
 
+use authenticator::login::Login;
 use authenticator::otp::Account;
 use authenticator::{backup, migration, otp};
 use serde_json::Value;
@@ -61,10 +62,15 @@ fn backups_from_both_platforms() {
         let Ok(bytes) = std::fs::read(&path) else {
             panic!("missing fixture {path}");
         };
-        let (accounts, invalid) = backup::open(&bytes, case["password"].as_str().unwrap()).unwrap();
+        let contents = backup::open(&bytes, case["password"].as_str().unwrap()).unwrap();
         let expected: Vec<Account> = case["accounts"].as_array().unwrap().iter().map(account).collect();
-        assert_eq!(accounts, expected, "{path}");
-        assert_eq!(invalid, 0);
+        assert_eq!(contents.accounts, expected, "{path}");
+        let expected_logins: Vec<Login> = match case.get("logins") {
+            Some(list) => list.as_array().unwrap().iter().map(|v| serde_json::from_value(v.clone()).unwrap()).collect(),
+            None => Vec::new(),
+        };
+        assert_eq!(contents.logins, expected_logins, "{path}");
+        assert_eq!(contents.invalid, 0);
         assert!(backup::open(&bytes, "wrong password").is_err());
     }
 }
