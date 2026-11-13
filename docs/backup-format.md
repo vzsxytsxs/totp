@@ -70,11 +70,55 @@ Missing optional fields default to `totp`, empty strings, `SHA1`, 6 digits,
 30 seconds and counter 0. Entries that fail validation are skipped and
 reported, not fatal.
 
+### Added in app version 2.0
+
+Two optional fields, so version 1.x apps still read the accounts of a newer
+backup (and ignore the rest):
+
+* `entries[].id`: random id of the account (32 hex characters). Logins use it
+  to point at their 2FA code.
+* `logins`: saved website logins.
+
+```json
+"logins": [
+  {
+    "id": "11111111111111111111111111111111",
+    "title": "GitHub",
+    "username": "octocat",
+    "password": "correct-horse-ção-🔑",
+    "url": "https://github.com/login",
+    "notes": "",
+    "otp": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+    "created": 1700000000,
+    "modified": 1700000500
+  }
+]
+```
+
+| Field      | Meaning                                                       |
+|------------|---------------------------------------------------------------|
+| `title`    | name shown in lists; may be empty if `url` is set             |
+| `url`      | website; `github.com` (no scheme) means `https://github.com`  |
+| `otp`      | `id` of the linked 2FA account in `entries`, or absent        |
+| `created`, `modified` | unix seconds                                       |
+
+### Importing (merge)
+
+Restoring a backup adds to what is already in the app instead of replacing it:
+
+* An account with the same `id`, or the same secret, type, issuer and name, is
+  already there and is skipped (HOTP keeps the higher counter).
+* A login with the same `id` replaces the existing one only if its `modified`
+  is newer. Same website, username and password counts as a duplicate.
+* `otp` links follow the accounts they point to; links to accounts that are
+  not in the app are dropped.
+
 ## Test vectors
 
 `docs/test-vectors/vectors.json` holds RFC 4226/6238 codes, `otpauth://`
-parsing cases, a Google Authenticator export and two backup files: one
-written by the Windows app and one written by the Android app. Both test
+parsing cases, a Google Authenticator export and backup files written by each
+app: `backup-from-*.json` by version 1.0 (accounts only) and
+`backup-v2-from-*.json` by version 2.0 (with ids and logins). Both test
 suites (`cargo test` in `windows/`, `./gradlew -p core test` in `android/`)
 check all of them, so each app is proven to read the other's backups.
 

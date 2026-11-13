@@ -817,6 +817,7 @@ fn wire_callbacks(ui: &AppWindow) {
                 return fail(if kind == OtpKind::Totp { "The period must be a number of seconds." } else { "The counter must be a number." });
             };
             let account = Account {
+                id: String::new(),
                 kind,
                 issuer: issuer.trim().to_string(),
                 name: name.trim().to_string(),
@@ -884,7 +885,7 @@ fn wire_callbacks(ui: &AppWindow) {
                 let _ = weak.upgrade_in_event_loop(move |ui| {
                     ui.set_busy(false);
                     match result {
-                        Ok((accounts, invalid)) => {
+                        Ok(backup::Contents { accounts, invalid, .. }) => {
                             with_state(|s| s.pending_backup = None);
                             ui.set_restore_dialog(false);
                             let messages = if invalid > 0 {
@@ -975,7 +976,7 @@ fn wire_callbacks(ui: &AppWindow) {
             set_busy(&ui, "Encrypting backup…");
             let weak = ui.as_weak();
             std::thread::spawn(move || {
-                let result = backup::create(&accounts, &password)
+                let result = backup::create(&accounts, &[], &password)
                     .and_then(|contents| std::fs::write(&path, contents).map_err(|e| e.to_string()));
                 let _ = weak.upgrade_in_event_loop(move |ui| {
                     ui.set_busy(false);

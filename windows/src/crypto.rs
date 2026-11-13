@@ -76,6 +76,11 @@ pub fn random<const N: usize>() -> [u8; N] {
     buf
 }
 
+/// Random id for accounts, logins and paired browsers (32 hex characters).
+pub fn new_id() -> String {
+    random::<16>().iter().map(|b| format!("{b:02x}")).collect()
+}
+
 #[derive(Serialize, Deserialize)]
 struct KdfJson {
     algorithm: String,

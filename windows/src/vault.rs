@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 use zeroize::Zeroizing;
 
 use crate::crypto::{self, Envelope, EnvelopeError, KdfParams, SALT_LEN};
+use crate::login::{GeneratorOptions, Login};
+use crate::merge;
 use crate::otp::Account;
 use crate::platform;
 
@@ -31,12 +33,36 @@ pub struct Settings {
     /// 0 = never clear.
     pub clipboard_clear_seconds: u32,
     pub hide_from_capture: bool,
+    /// Lock when Windows locks (Win+L), the session switches or the PC sleeps.
+    pub lock_on_session_lock: bool,
+    /// Ask in the app before giving a password to the browser extension.
+    pub confirm_browser_access: bool,
+    pub generator: GeneratorOptions,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { auto_lock_minutes: 5, clipboard_clear_seconds: 30, hide_from_capture: true }
+        Settings {
+            auto_lock_minutes: 5,
+            clipboard_clear_seconds: 30,
+            hide_from_capture: true,
+            lock_on_session_lock: true,
+            confirm_browser_access: false,
+            generator: GeneratorOptions::default(),
+        }
     }
+}
+
+/// A browser extension that was allowed to connect (see `browser`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BrowserClient {
+    pub id: String,
+    pub name: String,
+    /// Base64 of the 32-byte key shared with the extension.
+    pub key: String,
+    pub created: i64,
+    #[serde(default)]
+    pub last_used: i64,
 }
 
 #[derive(Serialize)]
@@ -44,6 +70,8 @@ struct PayloadOut<'a> {
     version: u32,
     settings: &'a Settings,
     entries: &'a [Account],
+    logins: &'a [Login],
+    browsers: &'a [BrowserClient],
 }
 
 #[derive(Deserialize)]
@@ -53,6 +81,10 @@ struct PayloadIn {
     #[serde(default)]
     settings: Settings,
     entries: Vec<Account>,
+    #[serde(default)]
+    logins: Vec<Login>,
+    #[serde(default)]
+    browsers: Vec<BrowserClient>,
 }
 
 #[derive(Debug)]
@@ -79,6 +111,8 @@ pub struct Vault {
     params: KdfParams,
     pub settings: Settings,
     pub entries: Vec<Account>,
+    pub logins: Vec<Login>,
+    pub browsers: Vec<BrowserClient>,
 }
 
 pub fn default_path() -> PathBuf {
@@ -101,6 +135,8 @@ impl Vault {
             params,
             settings: Settings::default(),
             entries: Vec::new(),
+            logins: Vec::new(),
+            browsers: Vec::new(),
         };
         vault.save()?;
         Ok(vault)
@@ -132,9 +168,13 @@ impl Vault {
             params: envelope.params,
             settings: payload.settings,
             entries: payload.entries,
+            logins: payload.logins,
+            browsers: payload.browsers,
         };
         if envelope.salt.len() != SALT_LEN {
             vault.rekey(pin)?;
+        } else if merge::ensure_ids(&mut vault.entries, &mut vault.logins) {
+            vault.save()?;
         }
         Ok(vault)
     }
@@ -161,11 +201,15 @@ impl Vault {
     /// Writes atomically (temp file + rename) and keeps the previous file as `.bak`.
     pub fn save(&self) -> Result<(), VaultError> {
         let io = |e: std::io::Error| VaultError::Io(e.to_string());
-        let mut plaintext = Zeroizing::new(Vec::with_capacity(256 * self.entries.len() + 256));
-        serde_json::to_writer(
-            &mut *plaintext,
-            &PayloadOut { version: 1, settings: &self.settings, entries: &self.entries },
-        )
+        let mut plaintext = Zeroizing::new(Vec::with_capacity(256 * (self.entries.len() + self.logins.len()) + 256));
+        let payload = PayloadOut {
+            version: 1,
+            settings: &self.settings,
+            entries: &self.entries,
+            logins: &self.logins,
+            browsers: &self.browsers,
+        };
+        serde_json::to_writer(&mut *plaintext, &payload)
         .map_err(|e| VaultError::Corrupt(e.to_string()))?;
         let envelope = crypto::seal(FORMAT, &self.key, &self.salt, &self.params, &plaintext);
         let protected = platform::protect(envelope.as_bytes()).map_err(VaultError::Io)?;
@@ -209,17 +253,25 @@ mod tests {
         let _ = destroy(&path);
         let mut v = Vault::create(&path, "1234").unwrap();
         v.entries.push(parse_otpauth("otpauth://totp/A:b?secret=JBSWY3DPEHPK3PXP").unwrap());
+        v.logins.push(Login {
+            title: "Site".into(),
+            password: crate::login::Password::new("pa55word"),
+            ..Default::default()
+        });
         v.settings.auto_lock_minutes = 15;
         v.save().unwrap();
         assert!(matches!(Vault::unlock(&path, "0000"), Err(VaultError::WrongPin)));
         let mut v2 = Vault::unlock(&path, "1234").unwrap();
         assert_eq!(v2.entries.len(), 1);
+        assert_eq!(v2.logins[0].password.as_str(), "pa55word");
+        assert!(!v2.entries[0].id.is_empty() && !v2.logins[0].id.is_empty(), "ids assigned on unlock");
         assert_eq!(v2.settings.auto_lock_minutes, 15);
         v2.change_pin("987654").unwrap();
         assert!(matches!(Vault::unlock(&path, "1234"), Err(VaultError::WrongPin)));
         assert_eq!(Vault::unlock(&path, "987654").unwrap().entries.len(), 1);
         let on_disk = fs::read(&path).unwrap();
         assert!(!String::from_utf8_lossy(&on_disk).contains("JBSWY3DPEHPK3PXP"));
+        assert!(!String::from_utf8_lossy(&on_disk).contains("pa55word"));
         destroy(&path).unwrap();
         let _ = fs::remove_dir(dir);
     }

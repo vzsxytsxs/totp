@@ -1,32 +1,127 @@
 {
   "comment": "Shared test vectors. Both the Windows (Rust) and Android (Kotlin) test suites check every entry here.",
   "totp": [
-    { "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", "algorithm": "SHA1", "digits": 8, "period": 30, "time": 59, "code": "94287082" },
-    { "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA", "algorithm": "SHA256", "digits": 8, "period": 30, "time": 59, "code": "46119246" },
-    { "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNA", "algorithm": "SHA512", "digits": 8, "period": 30, "time": 59, "code": "90693936" },
-    { "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", "algorithm": "SHA1", "digits": 8, "period": 30, "time": 1111111109, "code": "07081804" },
-    { "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA", "algorithm": "SHA256", "digits": 8, "period": 30, "time": 1234567890, "code": "91819424" },
-    { "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNA", "algorithm": "SHA512", "digits": 8, "period": 30, "time": 20000000000, "code": "47863826" },
-    { "secret": "JBSWY3DPEHPK3PXP", "algorithm": "SHA1", "digits": 6, "period": 30, "time": 1700000000, "code": "324550" },
-    { "secret": "JBSWY3DPEHPK3PXP", "algorithm": "SHA1", "digits": 7, "period": 60, "time": 1700000000, "code": "9508648" }
+    {
+      "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+      "algorithm": "SHA1",
+      "digits": 8,
+      "period": 30,
+      "time": 59,
+      "code": "94287082"
+    },
+    {
+      "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA",
+      "algorithm": "SHA256",
+      "digits": 8,
+      "period": 30,
+      "time": 59,
+      "code": "46119246"
+    },
+    {
+      "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNA",
+      "algorithm": "SHA512",
+      "digits": 8,
+      "period": 30,
+      "time": 59,
+      "code": "90693936"
+    },
+    {
+      "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+      "algorithm": "SHA1",
+      "digits": 8,
+      "period": 30,
+      "time": 1111111109,
+      "code": "07081804"
+    },
+    {
+      "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA",
+      "algorithm": "SHA256",
+      "digits": 8,
+      "period": 30,
+      "time": 1234567890,
+      "code": "91819424"
+    },
+    {
+      "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNA",
+      "algorithm": "SHA512",
+      "digits": 8,
+      "period": 30,
+      "time": 20000000000,
+      "code": "47863826"
+    },
+    {
+      "secret": "JBSWY3DPEHPK3PXP",
+      "algorithm": "SHA1",
+      "digits": 6,
+      "period": 30,
+      "time": 1700000000,
+      "code": "324550"
+    },
+    {
+      "secret": "JBSWY3DPEHPK3PXP",
+      "algorithm": "SHA1",
+      "digits": 7,
+      "period": 60,
+      "time": 1700000000,
+      "code": "9508648"
+    }
   ],
   "hotp": [
-    { "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", "counter": 0, "code": "755224" },
-    { "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", "counter": 1, "code": "287082" },
-    { "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", "counter": 9, "code": "520489" }
+    {
+      "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+      "counter": 0,
+      "code": "755224"
+    },
+    {
+      "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+      "counter": 1,
+      "code": "287082"
+    },
+    {
+      "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+      "counter": 9,
+      "code": "520489"
+    }
   ],
   "otpauth": [
     {
       "uri": "otpauth://totp/ACME%20Co:john.doe@email.com?secret=HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ&issuer=ACME%20Co&algorithm=SHA256&digits=8&period=60",
-      "account": { "type": "totp", "issuer": "ACME Co", "name": "john.doe@email.com", "secret": "HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ", "algorithm": "SHA256", "digits": 8, "period": 60, "counter": 0 }
+      "account": {
+        "type": "totp",
+        "issuer": "ACME Co",
+        "name": "john.doe@email.com",
+        "secret": "HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ",
+        "algorithm": "SHA256",
+        "digits": 8,
+        "period": 60,
+        "counter": 0
+      }
     },
     {
       "uri": "otpauth://hotp/Legacy?secret=gezd%20gnbv&counter=7",
-      "account": { "type": "hotp", "issuer": "", "name": "Legacy", "secret": "GEZDGNBV", "algorithm": "SHA1", "digits": 6, "period": 30, "counter": 7 }
+      "account": {
+        "type": "hotp",
+        "issuer": "",
+        "name": "Legacy",
+        "secret": "GEZDGNBV",
+        "algorithm": "SHA1",
+        "digits": 6,
+        "period": 30,
+        "counter": 7
+      }
     },
     {
       "uri": "otpauth://totp/Example:alice?issuer=Other&secret=JBSWY3DPEHPK3PXP",
-      "account": { "type": "totp", "issuer": "Other", "name": "alice", "secret": "JBSWY3DPEHPK3PXP", "algorithm": "SHA1", "digits": 6, "period": 30, "counter": 0 }
+      "account": {
+        "type": "totp",
+        "issuer": "Other",
+        "name": "alice",
+        "secret": "JBSWY3DPEHPK3PXP",
+        "algorithm": "SHA1",
+        "digits": 6,
+        "period": 30,
+        "counter": 0
+      }
     }
   ],
   "otpauth_invalid": [
@@ -40,7 +135,16 @@
   "migration": {
     "uri": "otpauth-migration://offline?data=CjEKCkhlbGxvId6tvu8SGEV4YW1wbGU6YWxpY2VAZ29vZ2xlLmNvbRoHRXhhbXBsZSABKAEwAhABGAEgACjr4JKcBA%3D%3D",
     "accounts": [
-      { "type": "totp", "issuer": "Example", "name": "alice@google.com", "secret": "JBSWY3DPEHPK3PXP", "algorithm": "SHA1", "digits": 6, "period": 30, "counter": 0 }
+      {
+        "type": "totp",
+        "issuer": "Example",
+        "name": "alice@google.com",
+        "secret": "JBSWY3DPEHPK3PXP",
+        "algorithm": "SHA1",
+        "digits": 6,
+        "period": 30,
+        "counter": 0
+      }
     ]
   },
   "backups": [
@@ -48,18 +152,165 @@
       "file": "backup-from-windows.json",
       "password": "correct horse battery staple ção",
       "accounts": [
-        { "type": "totp", "issuer": "GitHub", "name": "octocat", "secret": "JBSWY3DPEHPK3PXP", "algorithm": "SHA1", "digits": 6, "period": 30, "counter": 0 },
-        { "type": "totp", "issuer": "Banco Ágil", "name": "joão", "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA", "algorithm": "SHA256", "digits": 8, "period": 60, "counter": 0 },
-        { "type": "hotp", "issuer": "", "name": "Legacy", "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ", "algorithm": "SHA1", "digits": 6, "period": 30, "counter": 3 }
+        {
+          "type": "totp",
+          "issuer": "GitHub",
+          "name": "octocat",
+          "secret": "JBSWY3DPEHPK3PXP",
+          "algorithm": "SHA1",
+          "digits": 6,
+          "period": 30,
+          "counter": 0
+        },
+        {
+          "type": "totp",
+          "issuer": "Banco Ágil",
+          "name": "joão",
+          "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA",
+          "algorithm": "SHA256",
+          "digits": 8,
+          "period": 60,
+          "counter": 0
+        },
+        {
+          "type": "hotp",
+          "issuer": "",
+          "name": "Legacy",
+          "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+          "algorithm": "SHA1",
+          "digits": 6,
+          "period": 30,
+          "counter": 3
+        }
       ]
     },
     {
       "file": "backup-from-android.json",
       "password": "senha do backup: açaí 123",
       "accounts": [
-        { "type": "totp", "issuer": "Microsoft", "name": "maria@outlook.com", "secret": "KRSXG5CTMVRXEZLUKN2XAZLSKNSWG4TFOQ", "algorithm": "SHA1", "digits": 6, "period": 30, "counter": 0 },
-        { "type": "totp", "issuer": "Exchange", "name": "conta única", "secret": "JBSWY3DPEHPK3PXP", "algorithm": "SHA512", "digits": 8, "period": 30, "counter": 0 },
-        { "type": "hotp", "issuer": "", "name": "Token", "secret": "GEZDGNBVGY3TQOJQ", "algorithm": "SHA1", "digits": 6, "period": 30, "counter": 42 }
+        {
+          "type": "totp",
+          "issuer": "Microsoft",
+          "name": "maria@outlook.com",
+          "secret": "KRSXG5CTMVRXEZLUKN2XAZLSKNSWG4TFOQ",
+          "algorithm": "SHA1",
+          "digits": 6,
+          "period": 30,
+          "counter": 0
+        },
+        {
+          "type": "totp",
+          "issuer": "Exchange",
+          "name": "conta única",
+          "secret": "JBSWY3DPEHPK3PXP",
+          "algorithm": "SHA512",
+          "digits": 8,
+          "period": 30,
+          "counter": 0
+        },
+        {
+          "type": "hotp",
+          "issuer": "",
+          "name": "Token",
+          "secret": "GEZDGNBVGY3TQOJQ",
+          "algorithm": "SHA1",
+          "digits": 6,
+          "period": 30,
+          "counter": 42
+        }
+      ]
+    },
+    {
+      "file": "backup-v2-from-windows.json",
+      "password": "senha forte do windows 2.0 ✓",
+      "accounts": [
+        {
+          "id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "type": "totp",
+          "issuer": "GitHub",
+          "name": "octocat",
+          "secret": "JBSWY3DPEHPK3PXP",
+          "algorithm": "SHA1",
+          "digits": 6,
+          "period": 30,
+          "counter": 0
+        },
+        {
+          "id": "ffeeddccbbaa99887766554433221100",
+          "type": "hotp",
+          "issuer": "",
+          "name": "Legacy",
+          "secret": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+          "algorithm": "SHA1",
+          "digits": 6,
+          "period": 30,
+          "counter": 3
+        }
+      ],
+      "logins": [
+        {
+          "id": "11111111111111111111111111111111",
+          "title": "GitHub",
+          "username": "octocat",
+          "password": "correct-horse-ção-🔑",
+          "url": "https://github.com/login",
+          "notes": "line 1\nline 2",
+          "otp": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "created": 1700000000,
+          "modified": 1700000500
+        },
+        {
+          "id": "22222222222222222222222222222222",
+          "title": "",
+          "username": "joão@example.com",
+          "password": "p@ss \"quoted\" \\ end",
+          "url": "example.com",
+          "notes": "",
+          "otp": "",
+          "created": 1700000000,
+          "modified": 1700000000
+        }
+      ]
+    },
+    {
+      "file": "backup-v2-from-android.json",
+      "password": "backup do celular 2.0 ✓",
+      "accounts": [
+        {
+          "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "type": "totp",
+          "issuer": "Microsoft",
+          "name": "maria@outlook.com",
+          "secret": "KRSXG5CTMVRXEZLUKN2XAZLSKNSWG4TFOQ",
+          "algorithm": "SHA1",
+          "digits": 6,
+          "period": 30,
+          "counter": 0
+        }
+      ],
+      "logins": [
+        {
+          "id": "33333333333333333333333333333333",
+          "title": "Outlook",
+          "username": "maria@outlook.com",
+          "password": "Sênha#Forte!2025 ✓",
+          "url": "https://login.live.com",
+          "notes": "",
+          "otp": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "created": 1710000000,
+          "modified": 1710000000
+        },
+        {
+          "id": "44444444444444444444444444444444",
+          "title": "Roteador",
+          "username": "admin",
+          "password": "",
+          "url": "http://192.168.0.1",
+          "notes": "Wi-Fi: casa",
+          "otp": "",
+          "created": 1710000000,
+          "modified": 1710003600
+        }
       ]
     }
   ]

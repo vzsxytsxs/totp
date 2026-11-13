@@ -114,6 +114,7 @@ mod tests {
         use crate::otp::{Account, Algorithm, OtpKind, Secret};
         let accounts: Vec<Account> = (0..12)
             .map(|i| Account {
+                id: String::new(),
                 kind: OtpKind::Totp,
                 issuer: format!("Service number {i}"),
                 name: format!("someone.long.name{i}@example.com"),

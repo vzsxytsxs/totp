@@ -3,6 +3,9 @@
 pub mod backup;
 pub mod base32;
 pub mod crypto;
+pub mod csv;
+pub mod login;
+pub mod merge;
 pub mod migration;
 pub mod otp;
 pub mod platform;

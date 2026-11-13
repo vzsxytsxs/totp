@@ -169,6 +169,7 @@ fn decode_otp_parameters(buf: &[u8]) -> Result<Result<Account, String>, String> 
         _ => OtpKind::Totp,
     };
     let account = Account {
+        id: String::new(),
         kind,
         issuer: issuer.trim().to_string(),
         name,
@@ -292,6 +293,7 @@ mod tests {
 
     fn account(i: usize, kind: OtpKind) -> Account {
         Account {
+            id: String::new(),
             kind,
             issuer: format!("Issuer {i}"),
             name: format!("user{i}@example.com"),
