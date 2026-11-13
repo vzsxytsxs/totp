@@ -111,12 +111,12 @@ pub fn import(text: &str) -> Result<CsvImport, String> {
             continue;
         }
         let totp_value = get(totp);
-        if !totp_value.is_empty() {
-            if let Some(mut account) = totp_account(&totp_value, &login) {
-                account.id = crate::crypto::new_id();
-                login.otp = account.id.clone();
-                result.accounts.push(account);
-            }
+        if !totp_value.is_empty()
+            && let Some(mut account) = totp_account(&totp_value, &login)
+        {
+            account.id = crate::crypto::new_id();
+            login.otp = account.id.clone();
+            result.accounts.push(account);
         }
         result.logins.push(login);
     }

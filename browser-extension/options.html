@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Authenticator extension</title>
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="options.js"></script>
+  </head>
+  <body class="options">
+    <main>
+      <div class="brand"><img src="icons/48.png" alt="" style="width: 36px; height: 36px" /><h1>Authenticator</h1></div>
+      <p class="dim">
+        Fills in the logins and 2FA codes saved in the Authenticator app on this PC. The extension talks only to the
+        app, only while it is unlocked, and never over the internet.
+      </p>
+
+      <h2>Connection with the app</h2>
+      <div class="card">
+        <div id="connected" class="hidden">
+          <div id="connected-text"></div>
+          <div id="test-result"></div>
+          <div class="actions">
+            <button id="test">Test connection</button>
+            <button id="forget">Disconnect</button>
+          </div>
+        </div>
+        <form id="connect" class="hidden" autocomplete="off">
+          <div>This browser is not connected yet. Open the Authenticator app on this PC, then:</div>
+          <label for="name">Name for this browser (shown in the app)</label>
+          <input id="name" maxlength="60" />
+          <div class="actions"><button type="submit" class="primary" id="connect-button">Connect</button></div>
+        </form>
+        <div id="pairing" class="hidden">
+          <div>Check that Authenticator shows this code, then click <strong>Allow</strong> there:</div>
+          <div class="code" id="code"></div>
+          <div class="dim">Waiting for your answer in the app…</div>
+        </div>
+        <div id="error" class="error"></div>
+      </div>
+
+      <h2>How to use it</h2>
+      <ul>
+        <li>On a login page, click the Authenticator button in the toolbar and choose the login.</li>
+        <li>
+          Or press <strong>Ctrl+Shift+U</strong>: it fills in the user name and password, or the 2FA code on the next
+          page. To change the shortcut, open <span class="dim">thorium://extensions/shortcuts</span> (or
+          chrome://extensions/shortcuts).
+        </li>
+        <li>If Authenticator is locked, its window comes up and asks for your PIN first.</li>
+        <li>To save a login, use "Save login from this page" in the toolbar button after typing it on the page.</li>
+      </ul>
+    </main>
+  </body>
+</html>

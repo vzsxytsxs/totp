@@ -360,11 +360,11 @@ pub fn wire(ui: &AppWindow) {
     callback!(ui, on_pick_all, |ui, codes, value| with_state(|s| {
         let model = if codes { &s.export_codes } else { &s.export_logins };
         for i in 0..model.row_count() {
-            if let Some(mut row) = model.row_data(i) {
-                if row.checked != value {
-                    row.checked = value;
-                    model.set_row_data(i, row);
-                }
+            if let Some(mut row) = model.row_data(i)
+                && row.checked != value
+            {
+                row.checked = value;
+                model.set_row_data(i, row);
             }
         }
         update_counts(&ui, s);

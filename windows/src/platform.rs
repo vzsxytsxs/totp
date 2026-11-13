@@ -45,7 +45,7 @@ mod win {
         HKEY_CURRENT_USER, REG_SZ, RRF_RT_REG_SZ, RegDeleteKeyValueW, RegDeleteTreeW, RegGetValueW, RegSetKeyValueW,
     };
     use windows_sys::Win32::System::SystemInformation::GetTickCount;
-    use windows_sys::Win32::System::Threading::CreateMutexW;
+    use windows_sys::Win32::System::Threading::{AttachThreadInput, CreateMutexW, GetCurrentThreadId};
     use windows_sys::Win32::System::Time::{FileTimeToSystemTime, SystemTimeToTzSpecificLocalTime};
     use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
     use windows_sys::Win32::UI::Shell::ShellExecuteW;
@@ -309,10 +309,10 @@ mod win {
     /// Keeps the start-with-Windows entry pointing at this copy of the program
     /// (in case the .exe was moved or updated to a new folder).
     pub fn refresh_autostart() {
-        if let (Some(current), Some(wanted)) = (reg_get(RUN_KEY, Some(RUN_VALUE)), autostart_command()) {
-            if current != wanted {
-                let _ = reg_set(RUN_KEY, Some(RUN_VALUE), &wanted);
-            }
+        if let (Some(current), Some(wanted)) = (reg_get(RUN_KEY, Some(RUN_VALUE)), autostart_command())
+            && current != wanted
+        {
+            let _ = reg_set(RUN_KEY, Some(RUN_VALUE), &wanted);
         }
     }
 
@@ -344,13 +344,34 @@ mod win {
         if hwnd == 0 {
             return;
         }
-        // SAFETY: hwnd is our own top-level window.
+        // SAFETY: hwnd is our own top-level window; the other calls only
+        // take thread ids and are undone right away.
         unsafe {
             let hwnd = hwnd as HWND;
             if IsIconic(hwnd) != 0 {
                 ShowWindow(hwnd, SW_RESTORE);
             }
-            SetForegroundWindow(hwnd);
+            if SetForegroundWindow(hwnd) != 0 && GetForegroundWindow() == hwnd {
+                return;
+            }
+            // Windows refuses to switch windows for a program running in the
+            // background (for example when the browser asks for a login).
+            // Joining the input of the window in front lets us take over,
+            // since the user did ask for this window.
+            let ours = GetCurrentThreadId();
+            let front = GetWindowThreadProcessId(GetForegroundWindow(), null_mut());
+            if front != 0 && front != ours && AttachThreadInput(ours, front, 1) != 0 {
+                BringWindowToTop(hwnd);
+                SetForegroundWindow(hwnd);
+                AttachThreadInput(ours, front, 0);
+            }
+            if GetForegroundWindow() != hwnd {
+                // At least show it above the others.
+                let flags = SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW;
+                SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, flags);
+                SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, flags);
+                FlashWindow(hwnd, 1);
+            }
         }
     }
 }

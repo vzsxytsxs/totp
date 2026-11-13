@@ -1126,9 +1126,10 @@ component StatusBar inherits Rectangle {
             vertical-alignment: center;
         }
         Text {
-            text: App.browser-status;
+            // Only problems with the browser integration (details in its dialog).
+            text: App.browser-status-error ? "Browser integration: " + App.browser-status : "";
             font-size: 11px;
-            color: App.browser-status-error ? Theme.danger : Theme.dim;
+            color: Theme.danger;
             vertical-alignment: center;
             overflow: elide;
             horizontal-stretch: 1;
@@ -1859,6 +1860,12 @@ component BrowserDialog inherits DialogFrame {
                 checked <=> App.browser-enabled;
                 toggled => { App.browser-toggled(self.checked); }
             }
+            if App.browser-status != "": Text {
+                text: App.browser-status;
+                wrap: word-wrap;
+                font-size: 12px;
+                color: App.browser-status-error ? Theme.danger : Theme.dim;
+            }
             if App.browser-enabled: VerticalLayout {
                 spacing: 8px;
                 SectionTitle { text: "Install the extension (once per browser)"; }
@@ -1880,8 +1887,8 @@ component BrowserDialog inherits DialogFrame {
                     Button { text: "Copy"; clicked => { App.browser-copy-path(); } }
                     Button { text: "Open folder"; clicked => { App.browser-open-folder(); } }
                 }
-                Text { text: "4. Click the Authenticator icon in the browser toolbar and choose \"Connect\". Confirm the code here."; wrap: word-wrap; font-size: 12px; color: Palette.foreground; }
-                Hint { text: "Shortcut on a login page: Ctrl+Shift+L fills the login (and the 2FA code on the next page)."; }
+                Text { text: "4. The extension opens its settings: click \"Connect\" there, then \"Allow\" here if both show the same code."; wrap: word-wrap; font-size: 12px; color: Palette.foreground; }
+                Hint { text: "Shortcut on a login page: Ctrl+Shift+U fills the login (and the 2FA code on the next page)."; }
                 HSeparator { }
                 SectionTitle { text: "Connected browsers"; }
                 if App.browser-clients.length == 0: Hint { text: "None yet."; }

@@ -239,11 +239,11 @@ fn generator_options(ui: &AppWindow) -> GeneratorOptions {
 /// Remembers the generator options (part of the encrypted settings).
 fn store_generator(ui: &AppWindow, options: GeneratorOptions) {
     with_state(|s| {
-        if let Some(vault) = s.vault.as_mut() {
-            if vault.settings.generator != options {
-                vault.settings.generator = options;
-                save(ui, s);
-            }
+        if let Some(vault) = s.vault.as_mut()
+            && vault.settings.generator != options
+        {
+            vault.settings.generator = options;
+            save(ui, s);
         }
     });
 }

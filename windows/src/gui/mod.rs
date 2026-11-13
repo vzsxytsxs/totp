@@ -31,6 +31,7 @@ macro_rules! callback {
     }};
 }
 
+mod browser;
 mod codes;
 mod logins;
 mod session;
@@ -83,6 +84,7 @@ pub struct State {
     /// The notification-area icon is running.
     pub tray: bool,
     pub window_visible: bool,
+    pub browser: browser::Browser,
 }
 
 thread_local! {
@@ -97,10 +99,10 @@ pub fn with_state<R>(f: impl FnOnce(&mut State) -> R) -> R {
 /// Like `with_state`, but silently skips if the state is busy (timers).
 pub fn try_with_state(f: impl FnOnce(&mut State)) {
     STATE.with(|cell| {
-        if let Ok(mut guard) = cell.try_borrow_mut() {
-            if let Some(state) = guard.as_mut() {
-                f(state);
-            }
+        if let Ok(mut guard) = cell.try_borrow_mut()
+            && let Some(state) = guard.as_mut()
+        {
+            f(state);
         }
     });
 }
@@ -146,6 +148,7 @@ pub fn run(start_hidden: bool) -> Result<(), slint::PlatformError> {
         hwnd: 0,
         tray: false,
         window_visible: false,
+        browser: browser::Browser::default(),
         vault_path,
     };
     a.set_codes(ModelRc::from(state.code_rows.clone()));
@@ -165,8 +168,10 @@ pub fn run(start_hidden: bool) -> Result<(), slint::PlatformError> {
     logins::wire(&ui);
     transfer::wire(&ui);
     window::wire(&ui);
+    browser::wire(&ui);
 
     platform::refresh_autostart();
+    browser::start(&ui);
     let tray = window::start_tray(&ui);
     let has_vault = with_state(|s| {
         s.tray = tray;
@@ -195,6 +200,7 @@ pub fn run(start_hidden: bool) -> Result<(), slint::PlatformError> {
 }
 
 fn tick(ui: &AppWindow) {
+    browser::expire(ui);
     try_with_state(|s| {
         if s.hwnd == 0 {
             s.hwnd = native_handle(ui);
@@ -401,12 +407,11 @@ fn set_clipboard_secret(s: &mut State, text: &str) -> Result<(), String> {
 }
 
 pub fn clear_clipboard_if_ours(s: &mut State) {
-    if let Some(copied) = s.copied.take() {
-        if let Ok(cb) = clipboard(s) {
-            if cb.get_text().map(|t| t == *copied).unwrap_or(false) {
-                let _ = cb.clear();
-            }
-        }
+    if let Some(copied) = s.copied.take()
+        && let Ok(cb) = clipboard(s)
+        && cb.get_text().map(|t| t == *copied).unwrap_or(false)
+    {
+        let _ = cb.clear();
     }
 }
 

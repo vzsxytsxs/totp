@@ -73,6 +73,7 @@ pub fn hide(ui: &AppWindow) {
     let _ = ui.hide();
     with_state(|s| {
         s.window_visible = false;
+        browser::on_hidden(ui, s);
         if !s.prefs.tray_hint_shown {
             s.prefs.tray_hint_shown = true;
             let _ = s.prefs.save();

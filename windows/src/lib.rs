@@ -2,6 +2,7 @@
 
 pub mod backup;
 pub mod base32;
+pub mod browser;
 pub mod crypto;
 pub mod csv;
 pub mod login;

@@ -53,6 +53,7 @@ pub fn lock_now(ui: &AppWindow, s: &mut State) {
     a.set_dialog(Dialog::None);
     a.set_lock_error("".into());
     a.set_page(Page::Lock);
+    browser::on_lock(s);
     authenticator::tray::set_locked(true);
     ui.invoke_focus_pin();
 }
@@ -82,6 +83,13 @@ pub fn open_vault(ui: &AppWindow, s: &mut State, vault: Vault) {
     a.set_page(Page::Main);
     authenticator::tray::set_locked(false);
     ui.invoke_focus_list();
+    // Answer the browser requests that waited for the PIN (outside of this state borrow).
+    let weak = ui.as_weak();
+    let _ = slint::invoke_from_event_loop(move || {
+        if let Some(ui) = weak.upgrade() {
+            browser::after_unlock(&ui);
+        }
+    });
 }
 
 pub fn next_id(s: &mut State) -> i32 {

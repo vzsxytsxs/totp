@@ -137,16 +137,16 @@ pub fn merge(
         if incoming.modified == 0 {
             incoming.modified = incoming.created;
         }
-        if !incoming.id.is_empty() {
-            if let Some(existing) = logins.iter_mut().find(|l| l.id == incoming.id) {
-                if incoming.modified > existing.modified {
-                    *existing = incoming;
-                    report.logins_updated += 1;
-                } else {
-                    report.logins_skipped += 1;
-                }
-                continue;
+        if !incoming.id.is_empty()
+            && let Some(existing) = logins.iter_mut().find(|l| l.id == incoming.id)
+        {
+            if incoming.modified > existing.modified {
+                *existing = incoming;
+                report.logins_updated += 1;
+            } else {
+                report.logins_skipped += 1;
             }
+            continue;
         }
         if logins.iter().any(|l| l.same_as(&incoming)) {
             report.logins_skipped += 1;

@@ -46,10 +46,10 @@ fn decode_luma(width: usize, height: usize, luma: &[u8], invert: bool) -> Vec<St
     });
     let mut out: Vec<String> = Vec::new();
     for grid in img.detect_grids() {
-        if let Ok((_, content)) = grid.decode() {
-            if !out.contains(&content) {
-                out.push(content);
-            }
+        if let Ok((_, content)) = grid.decode()
+            && !out.contains(&content)
+        {
+            out.push(content);
         }
     }
     out

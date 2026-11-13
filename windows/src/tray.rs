@@ -112,7 +112,10 @@ mod win {
             let size_x = GetSystemMetrics(SM_CXSMICON);
             let size_y = GetSystemMetrics(SM_CYSMICON);
             // Resource 1 is the program icon embedded by build.rs.
-            let mut icon = LoadImageW(instance, 1usize as *const u16, IMAGE_ICON, size_x, size_y, LR_DEFAULTCOLOR);
+            // MAKEINTRESOURCE(1): the icon resource added by build.rs.
+            #[allow(clippy::manual_dangling_ptr)]
+            let resource = 1usize as *const u16;
+            let mut icon = LoadImageW(instance, resource, IMAGE_ICON, size_x, size_y, LR_DEFAULTCOLOR);
             if icon.is_null() {
                 icon = LoadIconW(null_mut(), IDI_APPLICATION) as _;
             }

@@ -36,6 +36,10 @@ jobs:
           workspaces: windows
 
       - name: Tests
+        # Includes the browser integration tests that use the real pipe,
+        # registry and folders of the runner's user.
+        env:
+          AUTH_TEST_SYSTEM: "1"
         run: cargo test --release --locked
 
       - name: Build
@@ -148,6 +152,7 @@ jobs:
           ## Downloads
 
           - **Windows** (10/11): `Authenticator.exe`. No installer: just open it. SmartScreen may warn because the file is not code-signed: "More info" → "Run anyway".
+            The browser extension (Thorium, Chrome, Edge, Brave…) is inside it: in the app, Tools → Browser integration.
           - **Android** (8.0+): `Authenticator.apk`. Allow installing unknown apps for the browser or file manager that opens it.
 
           Both apps work fully offline and read each other's encrypted backup files. See the README for importing from Google Authenticator.
