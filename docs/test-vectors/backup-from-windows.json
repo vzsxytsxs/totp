@@ -1,0 +1,16 @@
+{
+  "format": "authenticator-backup",
+  "version": 1,
+  "kdf": {
+    "algorithm": "argon2id",
+    "memory_kib": 8192,
+    "iterations": 1,
+    "parallelism": 1,
+    "salt": "+1aAOHl0M9pcT3K4/Bu3ww=="
+  },
+  "cipher": {
+    "algorithm": "aes-256-gcm",
+    "nonce": "mPDt70vj+ysjvsoj"
+  },
+  "data": "fA/UY/QLvk7dp5RqKLCc3IPfoDrQKouDDC/I8V15JyVO3UXnCLf7qzyfclem50hG4Xg5Ip57LQyYIM8Dt1jL24hJCfrJK2ftp/cRq8iD847fEmDBjJ9VF+U4rOP/UmywdBgAqx/pIOElyQ1gdNzq/rajID6UMZPfORYyYvxlAV6JzaFXgmHpEC95UOhiMt04IuG5C2iMEbE39IJvkOKR8VFkaZRDnO+hZE0K9eGvx74mDv7fEuYP/Y6OUdzK+wS8ukm1uy9c6s0kGPAfrXiSQzFwwKwVuqqTG31ay0YvRcFgnGXRdKPg+A8ZPO0zrm1Q+gupVOILeBIOamB9lpuNmpoR3Wo8eMWBhQ0w4d3VyP+++2SdW2ZqEXRNvhhk9Y1P4QUNcmcNe06t+S0sC0s/7JY0tPc7ESMITXgsE2RyT87uTEi0CwK9d0AwEWwB7O6UDG5/BwzV3/Vm+YFn/dUOlUyr6AWJAeIyRgOIUA7GxFsT3CfsVtDHh5yqrpM6cEoNZQANS2Unoy18bIdDvdaOSgXtrR1eGci2YgGqEkKow7sI/kSOpxpfg8upG6xfr5FJDa0A2/sMZ9OS4oZmlnsNQtKqdYgt64abcmhL85yjDRuIO1Y6Y3OElw7b30DTlBbq1s3FkVaQEZfMHA=="
+}

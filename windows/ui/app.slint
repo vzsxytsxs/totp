@@ -1,0 +1,1167 @@
+import { AboutSlint, Button, LineEdit, ComboBox, CheckBox, Switch, ScrollView, ListView, Palette, Spinner } from "std-widgets.slint";
+
+export enum Page { setup, lock, list, add, export, export-qr, settings }
+
+export struct EntryRow {
+    id: int,
+    title: string,
+    subtitle: string,
+    issuer: string,
+    name: string,
+    code: string,
+    remaining: int,
+    progress: float,
+    hotp: bool,
+    warn: bool,
+}
+
+// Material Design icons (Apache License 2.0).
+global Icons {
+    out property <string> add: "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z";
+    out property <string> back: "M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z";
+    out property <string> more: "M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z";
+    out property <string> lock: "M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z";
+    out property <string> settings: "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z";
+    out property <string> refresh: "M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z";
+    out property <string> export: "M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z";
+    out property <string> shield: "M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z";
+    out property <string> search: "M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z";
+}
+
+global Theme {
+    out property <color> dim: Palette.foreground.with-alpha(0.62);
+    out property <color> danger: Palette.color-scheme == ColorScheme.dark ? #ff99a4 : #c42b1c;
+    out property <color> success: Palette.color-scheme == ColorScheme.dark ? #6ccb5f : #0f7b0f;
+    out property <color> warn: Palette.color-scheme == ColorScheme.dark ? #fce100 : #9d5d00;
+    out property <color> code: Palette.color-scheme == ColorScheme.dark ? #99ebff : #003e92;
+    out property <color> card: Palette.color-scheme == ColorScheme.dark ? #ffffff0d : #00000008;
+}
+
+component IconButton inherits Rectangle {
+    in property <string> icon;
+    in property <string> label;
+    in property <color> icon-color: Palette.foreground;
+    in property <length> icon-size: 20px;
+    callback clicked;
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    background: touch.pressed ? Palette.foreground.with-alpha(0.14) : touch.has-hover ? Palette.foreground.with-alpha(0.07) : transparent;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-action-default => { root.clicked(); }
+
+    Path {
+        commands: root.icon;
+        fill: root.icon-color;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        width: root.icon-size;
+        height: root.icon-size;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component LinkText inherits Text {
+    callback clicked;
+    color: touch.has-hover ? Palette.accent-background.brighter(0.2) : Palette.accent-background;
+    font-size: 13px;
+    accessible-role: button;
+    accessible-action-default => { root.clicked(); }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component Card inherits Rectangle {
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: Palette.border;
+    background: Theme.card;
+    VerticalLayout {
+        padding: 14px;
+        spacing: 10px;
+        @children
+    }
+}
+
+component SectionTitle inherits Text {
+    font-size: 15px;
+    font-weight: 600;
+    color: Palette.foreground;
+}
+
+component Hint inherits Text {
+    font-size: 12px;
+    color: Theme.dim;
+    wrap: word-wrap;
+}
+
+component StatusText inherits Text {
+    in property <bool> error;
+    font-size: 13px;
+    color: error ? Theme.danger : Theme.success;
+    wrap: word-wrap;
+    visible: self.text != "";
+}
+
+component PageHeader inherits Rectangle {
+    in property <string> title;
+    callback back;
+    height: 52px;
+    HorizontalLayout {
+        padding: 8px;
+        padding-right: 12px;
+        spacing: 6px;
+        alignment: start;
+        IconButton {
+            icon: Icons.back;
+            label: "Back";
+            clicked => { root.back(); }
+        }
+        Text {
+            text: root.title;
+            font-size: 18px;
+            font-weight: 600;
+            vertical-alignment: center;
+            color: Palette.foreground;
+        }
+    }
+    Rectangle {
+        y: parent.height - 1px;
+        height: 1px;
+        background: Palette.border;
+    }
+}
+
+component BrandHeader inherits VerticalLayout {
+    in property <string> title;
+    in property <string> subtitle;
+    spacing: 10px;
+    alignment: center;
+    HorizontalLayout {
+        alignment: center;
+        Rectangle {
+            width: 72px;
+            height: 72px;
+            border-radius: 18px;
+            background: #2563eb;
+            Path {
+                commands: Icons.shield;
+                fill: white;
+                viewbox-width: 24;
+                viewbox-height: 24;
+                width: 42px;
+                height: 42px;
+            }
+        }
+    }
+    Text {
+        text: root.title;
+        font-size: 22px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        color: Palette.foreground;
+    }
+    Text {
+        text: root.subtitle;
+        font-size: 13px;
+        color: Theme.dim;
+        horizontal-alignment: center;
+        wrap: word-wrap;
+    }
+}
+
+// ------------------------------------------------------------------ setup / lock
+
+component SetupPage inherits Rectangle {
+    in property <string> error;
+    callback create(string, string);
+
+    VerticalLayout {
+        padding: 32px;
+        spacing: 12px;
+        alignment: center;
+        BrandHeader {
+            title: "Welcome to Authenticator";
+            subtitle: "Create a PIN or password to protect your codes. If you forget it, the codes stored on this PC cannot be recovered, so keep a backup.";
+        }
+        Rectangle { height: 8px; }
+        pin := LineEdit {
+            input-type: password;
+            placeholder-text: "New PIN or password (at least 4 characters)";
+            accepted => { confirm.focus(); }
+            init => { self.focus(); }
+        }
+        confirm := LineEdit {
+            input-type: password;
+            placeholder-text: "Repeat PIN or password";
+            accepted => { root.create(pin.text, confirm.text); }
+        }
+        if root.error != "": StatusText { text: root.error; error: true; }
+        Button {
+            text: "Create";
+            primary: true;
+            clicked => { root.create(pin.text, confirm.text); }
+        }
+    }
+}
+
+component LockPage inherits Rectangle {
+    in property <string> error;
+    callback unlock(string);
+    callback reset(string);
+    property <bool> show-reset: false;
+
+    VerticalLayout {
+        padding: 32px;
+        spacing: 12px;
+        alignment: center;
+        BrandHeader {
+            title: "Authenticator is locked";
+            subtitle: "Enter your PIN or password.";
+        }
+        Rectangle { height: 8px; }
+        pin := LineEdit {
+            input-type: password;
+            placeholder-text: "PIN or password";
+            accepted => {
+                root.unlock(pin.text);
+                pin.text = "";
+            }
+            init => { self.focus(); }
+        }
+        if root.error != "": StatusText { text: root.error; error: true; }
+        Button {
+            text: "Unlock";
+            primary: true;
+            clicked => {
+                root.unlock(pin.text);
+                pin.text = "";
+            }
+        }
+        HorizontalLayout {
+            alignment: center;
+            LinkText {
+                text: root.show-reset ? "Cancel" : "Forgot your PIN?";
+                clicked => { root.show-reset = !root.show-reset; }
+            }
+        }
+        if root.show-reset: Card {
+            Text {
+                text: "Without the PIN the codes cannot be decrypted. Resetting deletes every account stored on this PC. You can restore them afterwards from a backup file.";
+                wrap: word-wrap;
+                font-size: 13px;
+                color: Theme.danger;
+            }
+            confirm := LineEdit {
+                placeholder-text: "Type DELETE to confirm";
+            }
+            Button {
+                text: "Delete everything and start over";
+                enabled: confirm.text == "DELETE";
+                clicked => { root.reset(confirm.text); }
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------ main list
+
+component EntryItem inherits Rectangle {
+    in property <EntryRow> entry;
+    callback copy;
+    callback next;
+    callback edit;
+    height: 84px;
+    background: touch.has-hover ? Palette.foreground.with-alpha(0.05) : transparent;
+    accessible-role: button;
+    accessible-label: entry.title + " " + entry.subtitle + ": " + entry.code;
+    accessible-action-default => { root.copy(); }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.copy(); }
+    }
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 8px;
+        spacing: 8px;
+        VerticalLayout {
+            alignment: center;
+            spacing: 1px;
+            Text {
+                text: root.entry.title;
+                font-size: 13px;
+                font-weight: 600;
+                color: Palette.foreground;
+                overflow: elide;
+            }
+            Text {
+                text: root.entry.subtitle;
+                font-size: 12px;
+                color: Theme.dim;
+                overflow: elide;
+                visible: root.entry.subtitle != "";
+            }
+            Text {
+                text: root.entry.code;
+                font-size: 28px;
+                font-weight: 600;
+                letter-spacing: 1px;
+                color: root.entry.warn ? Theme.danger : Theme.code;
+            }
+        }
+        if !root.entry.hotp: Rectangle {
+            width: 36px;
+            Rectangle {
+                width: 30px;
+                height: 30px;
+                border-radius: 15px;
+                border-width: 2px;
+                border-color: root.entry.warn ? Theme.danger : Palette.accent-background;
+                Text {
+                    text: root.entry.remaining;
+                    font-size: 12px;
+                    font-weight: 600;
+                    color: root.entry.warn ? Theme.danger : Palette.foreground;
+                }
+            }
+        }
+        if root.entry.hotp: VerticalLayout {
+            alignment: center;
+            IconButton {
+                icon: Icons.refresh;
+                label: "Next code";
+                clicked => { root.next(); }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            IconButton {
+                icon: Icons.more;
+                label: "Edit or delete";
+                clicked => { root.edit(); }
+            }
+        }
+    }
+
+    // Time left until the code changes.
+    if !root.entry.hotp: Rectangle {
+        x: 16px;
+        y: parent.height - 3px;
+        height: 2px;
+        width: (parent.width - 32px) * root.entry.progress;
+        background: root.entry.warn ? Theme.danger : Palette.accent-background;
+    }
+    Rectangle {
+        x: 16px;
+        y: parent.height - 1px;
+        height: 1px;
+        width: parent.width - 32px;
+        background: Palette.border;
+    }
+}
+
+component ListPage inherits Rectangle {
+    in property <[EntryRow]> entries;
+    in property <int> total;
+    in-out property <string> search;
+    callback search-edited(string);
+    callback add;
+    callback export;
+    callback settings;
+    callback lock;
+    callback copy(int);
+    callback next(int);
+    callback edit(EntryRow);
+
+    VerticalLayout {
+        Rectangle {
+            height: 56px;
+            HorizontalLayout {
+                padding: 10px;
+                padding-left: 16px;
+                padding-right: 8px;
+                spacing: 2px;
+                Text {
+                    text: "Authenticator";
+                    font-size: 20px;
+                    font-weight: 600;
+                    vertical-alignment: center;
+                    color: Palette.foreground;
+                    horizontal-stretch: 1;
+                }
+                IconButton { icon: Icons.add; label: "Add account (Ctrl+N)"; clicked => { root.add(); } }
+                IconButton { icon: Icons.export; label: "Export"; clicked => { root.export(); } }
+                IconButton { icon: Icons.settings; label: "Settings"; clicked => { root.settings(); } }
+                IconButton { icon: Icons.lock; label: "Lock (Ctrl+L)"; clicked => { root.lock(); } }
+            }
+        }
+        if root.total > 0: HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 12px;
+            padding-bottom: 6px;
+            LineEdit {
+                placeholder-text: "Search";
+                text <=> root.search;
+                edited(text) => { root.search-edited(text); }
+            }
+        }
+        Rectangle {
+            height: 1px;
+            background: Palette.border;
+        }
+        if root.total == 0: VerticalLayout {
+            alignment: center;
+            padding: 32px;
+            spacing: 14px;
+            Text {
+                text: "No accounts yet";
+                font-size: 18px;
+                font-weight: 600;
+                horizontal-alignment: center;
+                color: Palette.foreground;
+            }
+            Hint {
+                text: "Add an account from a QR code screenshot, a setup key, or import everything from Google Authenticator.";
+                horizontal-alignment: center;
+            }
+            HorizontalLayout {
+                alignment: center;
+                Button {
+                    text: "Add account";
+                    primary: true;
+                    clicked => { root.add(); }
+                }
+            }
+        }
+        if root.total > 0 && root.entries.length == 0: VerticalLayout {
+            alignment: start;
+            padding: 32px;
+            Hint {
+                text: "No accounts match your search.";
+                horizontal-alignment: center;
+            }
+        }
+        if root.entries.length > 0: ListView {
+            vertical-stretch: 1;
+            for row in root.entries: EntryItem {
+                entry: row;
+                copy => { root.copy(row.id); }
+                next => { root.next(row.id); }
+                edit => { root.edit(row); }
+            }
+        }
+        if root.entries.length > 0: Hint {
+            text: "Click a code to copy it.";
+            horizontal-alignment: center;
+            height: 28px;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// ------------------------------------------------------------------ add
+
+component AddPage inherits Rectangle {
+    in property <string> status;
+    in property <bool> status-error;
+    in property <bool> can-scan-screen;
+    callback back;
+    callback paste-image;
+    callback scan-screen;
+    callback open-image;
+    callback add-manual(string, string, string, int, int, int, string);
+    callback add-link(string);
+    callback restore-backup;
+    property <bool> advanced: false;
+
+    VerticalLayout {
+        PageHeader {
+            title: "Add account";
+            back => { root.back(); }
+        }
+        ScrollView {
+            vertical-stretch: 1;
+            VerticalLayout {
+                alignment: start;
+                padding: 14px;
+                spacing: 12px;
+                if root.status != "": StatusText { text: root.status; error: root.status-error; }
+                Card {
+                    SectionTitle { text: "From a QR code"; }
+                    Hint {
+                        text: "Works with a service's setup QR code and with Google Authenticator's \"Transfer accounts\" export codes (add each code in turn).";
+                    }
+                    Button {
+                        text: "Paste screenshot from clipboard (Ctrl+V)";
+                        primary: true;
+                        clicked => { root.paste-image(); }
+                    }
+                    Hint {
+                        text: "Tip: press Win+Shift+S, select the QR code, then come back here and press Ctrl+V.";
+                    }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Button {
+                            text: "Scan screen";
+                            enabled: root.can-scan-screen;
+                            clicked => { root.scan-screen(); }
+                        }
+                        Button {
+                            text: "Open image file…";
+                            clicked => { root.open-image(); }
+                        }
+                    }
+                }
+                Card {
+                    SectionTitle { text: "Enter a setup key"; }
+                    issuer := LineEdit { placeholder-text: "Service (e.g. GitHub)"; }
+                    name := LineEdit { placeholder-text: "Account (e.g. you@example.com)"; }
+                    secret := LineEdit {
+                        placeholder-text: "Secret key";
+                        accepted => {
+                            root.add-manual(issuer.text, name.text, secret.text, kind-index, algo-index, digits-index,
+                                kind-index == 0 ? period-text : counter-text);
+                        }
+                    }
+                    CheckBox {
+                        text: "Advanced options";
+                        checked <=> root.advanced;
+                    }
+                    if root.advanced: VerticalLayout {
+                        spacing: 8px;
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text { text: "Type"; vertical-alignment: center; width: 80px; color: Palette.foreground; }
+                            ComboBox {
+                                model: ["Time-based (TOTP)", "Counter-based (HOTP)"];
+                                current-index <=> kind-index;
+                            }
+                        }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text { text: "Algorithm"; vertical-alignment: center; width: 80px; color: Palette.foreground; }
+                            ComboBox {
+                                model: ["SHA1", "SHA256", "SHA512"];
+                                current-index <=> algo-index;
+                            }
+                        }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text { text: "Digits"; vertical-alignment: center; width: 80px; color: Palette.foreground; }
+                            ComboBox {
+                                model: ["6", "7", "8"];
+                                current-index <=> digits-index;
+                            }
+                        }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text {
+                                text: kind-index == 0 ? "Period (s)" : "Counter";
+                                vertical-alignment: center;
+                                width: 80px;
+                                color: Palette.foreground;
+                            }
+                            if kind-index == 0: LineEdit {
+                                text <=> period-text;
+                                input-type: number;
+                            }
+                            if kind-index != 0: LineEdit {
+                                text <=> counter-text;
+                                input-type: number;
+                            }
+                        }
+                    }
+                    Button {
+                        text: "Add";
+                        clicked => {
+                            root.add-manual(issuer.text, name.text, secret.text, kind-index, algo-index, digits-index,
+                                kind-index == 0 ? period-text : counter-text);
+                        }
+                    }
+                }
+                Card {
+                    SectionTitle { text: "Paste a link"; }
+                    link := LineEdit {
+                        placeholder-text: "otpauth://… or otpauth-migration://…";
+                        accepted => { root.add-link(link.text); }
+                    }
+                    Button {
+                        text: "Add from link";
+                        clicked => { root.add-link(link.text); }
+                    }
+                }
+                Card {
+                    SectionTitle { text: "Restore a backup"; }
+                    Hint { text: "Import an encrypted backup file created by this app on Android or on another PC."; }
+                    Button {
+                        text: "Restore from backup file…";
+                        clicked => { root.restore-backup(); }
+                    }
+                }
+            }
+        }
+    }
+    property <int> kind-index: 0;
+    property <int> algo-index: 0;
+    property <int> digits-index: 0;
+    property <string> period-text: "30";
+    property <string> counter-text: "0";
+}
+
+// ------------------------------------------------------------------ export
+
+component ExportPage inherits Rectangle {
+    in property <string> status;
+    in property <bool> status-error;
+    in property <int> total;
+    callback back;
+    callback show-qr;
+    callback save-backup(string, string);
+
+    function submit-backup() {
+        root.save-backup(pw.text, pw2.text);
+        pw.text = "";
+        pw2.text = "";
+    }
+
+    VerticalLayout {
+        PageHeader {
+            title: "Export accounts";
+            back => { root.back(); }
+        }
+        ScrollView {
+            vertical-stretch: 1;
+            VerticalLayout {
+                alignment: start;
+                padding: 14px;
+                spacing: 12px;
+                if root.status != "": StatusText { text: root.status; error: root.status-error; }
+                Card {
+                    SectionTitle { text: "QR codes (Google Authenticator format)"; }
+                    Hint {
+                        text: "Shows QR codes that Google Authenticator, this app on Android, and most other authenticator apps can scan.";
+                    }
+                    Text {
+                        text: "Anyone who sees these codes can copy your accounts. Show them only to your own device.";
+                        font-size: 12px;
+                        color: Theme.warn;
+                        wrap: word-wrap;
+                    }
+                    Button {
+                        text: "Show QR codes";
+                        primary: true;
+                        enabled: root.total > 0;
+                        clicked => { root.show-qr(); }
+                    }
+                }
+                Card {
+                    SectionTitle { text: "Encrypted backup file"; }
+                    Hint {
+                        text: "Saves every account in a password-protected file (Argon2id + AES-256). Restore it on Android or on another PC. If you lose the password, the file cannot be opened.";
+                    }
+                    pw := LineEdit {
+                        input-type: password;
+                        placeholder-text: "Backup password (at least 8 characters)";
+                    }
+                    pw2 := LineEdit {
+                        input-type: password;
+                        placeholder-text: "Repeat password";
+                        accepted => { root.submit-backup(); }
+                    }
+                    Button {
+                        text: "Save backup file…";
+                        enabled: root.total > 0;
+                        clicked => { root.submit-backup(); }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component ExportQrPage inherits Rectangle {
+    in property <[image]> codes;
+    in-out property <int> index;
+    in property <string> note;
+    callback done;
+
+    VerticalLayout {
+        PageHeader {
+            title: "Scan with your other device";
+            back => { root.done(); }
+        }
+        VerticalLayout {
+            padding: 16px;
+            spacing: 12px;
+            vertical-stretch: 1;
+            Hint {
+                text: "In Google Authenticator: Transfer accounts → Import accounts. On Android with this app: + → Scan QR code.";
+                horizontal-alignment: center;
+            }
+            qr-area := Rectangle {
+                vertical-stretch: 1;
+                min-height: 160px;
+                preferred-height: 320px;
+                Rectangle {
+                    x: (qr-area.width - self.width) / 2;
+                    y: (qr-area.height - self.height) / 2;
+                    width: min(qr-area.width, qr-area.height);
+                    height: min(qr-area.width, qr-area.height);
+                    background: white;
+                    border-radius: 6px;
+                }
+                Image {
+                    x: (qr-area.width - self.width) / 2;
+                    y: (qr-area.height - self.height) / 2;
+                    width: min(qr-area.width, qr-area.height) - 8px;
+                    height: min(qr-area.width, qr-area.height) - 8px;
+                    source: root.codes[root.index];
+                        image-rendering: pixelated;
+                        accessible-role: image;
+                    accessible-label: "Export QR code";
+                }
+            }
+            Text {
+                text: "Code " + (root.index + 1) + " of " + root.codes.length;
+                font-size: 15px;
+                font-weight: 600;
+                horizontal-alignment: center;
+                color: Palette.foreground;
+            }
+            Hint {
+                text: root.note;
+                horizontal-alignment: center;
+                visible: root.note != "";
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: center;
+                Button {
+                    text: "Previous";
+                    enabled: root.index > 0;
+                    clicked => { root.index -= 1; }
+                }
+                if root.index < root.codes.length - 1: Button {
+                    text: "Next";
+                    primary: true;
+                    clicked => { root.index += 1; }
+                }
+                if root.index >= root.codes.length - 1: Button {
+                    text: "Done";
+                    primary: true;
+                    clicked => { root.done(); }
+                }
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------ settings
+
+component SettingsPage inherits Rectangle {
+    in property <string> status;
+    in property <bool> status-error;
+    in property <string> data-path;
+    in property <string> version;
+    in-out property <int> auto-lock-index;
+    in-out property <int> clipboard-index;
+    in-out property <bool> hide-from-capture;
+    callback back;
+    callback changed;
+    callback change-pin(string, string, string);
+
+    function submit-pin-change() {
+        root.change-pin(current.text, new-pin.text, confirm.text);
+        current.text = "";
+        new-pin.text = "";
+        confirm.text = "";
+    }
+
+    VerticalLayout {
+        PageHeader {
+            title: "Settings";
+            back => { root.back(); }
+        }
+        ScrollView {
+            vertical-stretch: 1;
+            VerticalLayout {
+                alignment: start;
+                padding: 14px;
+                spacing: 12px;
+                if root.status != "": StatusText { text: root.status; error: root.status-error; }
+                Card {
+                    SectionTitle { text: "Security"; }
+                    Text { text: "Lock automatically"; color: Palette.foreground; font-size: 13px; }
+                    ComboBox {
+                        model: ["After 1 minute without activity", "After 5 minutes without activity", "After 15 minutes without activity", "After 1 hour without activity", "Never"];
+                        current-index <=> root.auto-lock-index;
+                        selected => { root.changed(); }
+                    }
+                    Text { text: "Copied codes"; color: Palette.foreground; font-size: 13px; }
+                    ComboBox {
+                        model: ["Clear clipboard after 15 seconds", "Clear clipboard after 30 seconds", "Clear clipboard after 60 seconds", "Never clear clipboard"];
+                        current-index <=> root.clipboard-index;
+                        selected => { root.changed(); }
+                    }
+                    Switch {
+                        text: "Hide from screen capture";
+                        checked <=> root.hide-from-capture;
+                        toggled => { root.changed(); }
+                    }
+                    Hint { text: "Screenshots, recordings and screen sharing show this window as blank."; }
+                }
+                Card {
+                    SectionTitle { text: "Change PIN"; }
+                    current := LineEdit { input-type: password; placeholder-text: "Current PIN or password"; }
+                    new-pin := LineEdit { input-type: password; placeholder-text: "New PIN or password"; }
+                    confirm := LineEdit {
+                        input-type: password;
+                        placeholder-text: "Repeat new PIN or password";
+                        accepted => { root.submit-pin-change(); }
+                    }
+                    Button {
+                        text: "Change PIN";
+                        clicked => { root.submit-pin-change(); }
+                    }
+                }
+                Card {
+                    SectionTitle { text: "About"; }
+                    Hint { text: "Authenticator " + root.version + ". Works completely offline: nothing is sent over the internet."; }
+                    Hint { text: "Data file (encrypted): " + root.data-path; }
+                    Hint { text: "Keyboard: Ctrl+N add account, Ctrl+V paste screenshot, Ctrl+L lock, Esc go back."; }
+                    AboutSlint { }
+                }
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------ window
+
+export component AppWindow inherits Window {
+    title: "Authenticator";
+    icon: @image-url("../assets/icon.png");
+    preferred-width: 420px;
+    preferred-height: 680px;
+    min-width: 340px;
+    min-height: 480px;
+    background: Palette.background;
+    default-font-size: 14px;
+
+    in-out property <Page> page: Page.lock;
+    in property <[EntryRow]> entries;
+    in property <int> total-entries;
+    in-out property <string> search;
+    in property <bool> busy;
+    in property <string> busy-text;
+    in-out property <string> lock-error;
+    in property <string> toast-text;
+    in property <bool> toast-visible;
+    in-out property <string> status-text;
+    in-out property <bool> status-error;
+    in property <[image]> export-qrs;
+    in-out property <int> export-index;
+    in property <string> export-note;
+    in-out property <int> auto-lock-index;
+    in-out property <int> clipboard-index;
+    in-out property <bool> hide-from-capture;
+    in property <string> data-path;
+    in property <string> version;
+    in property <bool> can-scan-screen: true;
+    in-out property <bool> restore-dialog;
+    in-out property <int> edit-id: -1;
+    in-out property <string> edit-issuer;
+    in-out property <string> edit-name;
+    property <bool> confirm-delete;
+
+    callback create-pin(string, string);
+    callback unlock(string);
+    callback reset-all(string);
+    callback lock();
+    callback search-changed(string);
+    callback copy-code(int);
+    callback next-hotp(int);
+    callback rename-entry(int, string, string);
+    callback delete-entry(int);
+    callback paste-image();
+    callback scan-screen();
+    callback open-image();
+    callback add-manual(string, string, string, int, int, int, string);
+    callback add-link(string);
+    callback restore-backup();
+    callback restore-backup-password(string);
+    callback cancel-restore();
+    callback show-export-qr();
+    callback close-export-qr();
+    callback save-backup(string, string);
+    callback settings-changed();
+    callback change-pin(string, string, string);
+
+    function go(p: Page) {
+        root.status-text = "";
+        root.page = p;
+        shortcuts.focus();
+    }
+
+    property <bool> unlocked: root.page != Page.setup && root.page != Page.lock;
+
+    shortcuts := FocusScope {
+        key-pressed(event) => {
+            if (root.busy || !root.unlocked) {
+                return reject;
+            }
+            if (event.modifiers.control && (event.text == "v" || event.text == "V")) {
+                if (root.page == Page.list || root.page == Page.add) {
+                    root.paste-image();
+                    return accept;
+                }
+            }
+            if (event.modifiers.control && (event.text == "l" || event.text == "L")) {
+                root.lock();
+                return accept;
+            }
+            if (event.modifiers.control && (event.text == "n" || event.text == "N")) {
+                root.go(Page.add);
+                return accept;
+            }
+            if (event.text == Key.Escape) {
+                if (root.edit-id >= 0) {
+                    root.edit-id = -1;
+                    return accept;
+                }
+                if (root.page == Page.export-qr) {
+                    root.close-export-qr();
+                    return accept;
+                }
+                if (root.page != Page.list) {
+                    root.go(Page.list);
+                    return accept;
+                }
+            }
+            reject
+        }
+
+        if root.page == Page.setup: SetupPage {
+            error: root.lock-error;
+            create(pin, confirm) => { root.create-pin(pin, confirm); }
+        }
+        if root.page == Page.lock: LockPage {
+            error: root.lock-error;
+            unlock(pin) => { root.unlock(pin); }
+            reset(text) => { root.reset-all(text); }
+        }
+        if root.page == Page.list: ListPage {
+            entries: root.entries;
+            total: root.total-entries;
+            search <=> root.search;
+            search-edited(text) => { root.search-changed(text); }
+            add => { root.go(Page.add); }
+            export => { root.go(Page.export); }
+            settings => { root.go(Page.settings); }
+            lock => { root.lock(); }
+            copy(id) => { root.copy-code(id); }
+            next(id) => { root.next-hotp(id); }
+            edit(row) => {
+                root.edit-issuer = row.issuer;
+                root.edit-name = row.name;
+                root.confirm-delete = false;
+                root.edit-id = row.id;
+            }
+            init => { shortcuts.focus(); }
+        }
+        if root.page == Page.add: AddPage {
+            status: root.status-text;
+            status-error: root.status-error;
+            can-scan-screen: root.can-scan-screen;
+            back => { root.go(Page.list); }
+            paste-image => { root.paste-image(); }
+            scan-screen => { root.scan-screen(); }
+            open-image => { root.open-image(); }
+            add-manual(a, b, c, d, e, f, g) => { root.add-manual(a, b, c, d, e, f, g); }
+            add-link(text) => { root.add-link(text); }
+            restore-backup => { root.restore-backup(); }
+        }
+        if root.page == Page.export: ExportPage {
+            status: root.status-text;
+            status-error: root.status-error;
+            total: root.total-entries;
+            back => { root.go(Page.list); }
+            show-qr => { root.show-export-qr(); }
+            save-backup(a, b) => { root.save-backup(a, b); }
+        }
+        if root.page == Page.export-qr: ExportQrPage {
+            codes: root.export-qrs;
+            index <=> root.export-index;
+            note: root.export-note;
+            done => { root.close-export-qr(); }
+        }
+        if root.page == Page.settings: SettingsPage {
+            status: root.status-text;
+            status-error: root.status-error;
+            data-path: root.data-path;
+            version: root.version;
+            auto-lock-index <=> root.auto-lock-index;
+            clipboard-index <=> root.clipboard-index;
+            hide-from-capture <=> root.hide-from-capture;
+            back => { root.go(Page.list); }
+            changed => { root.settings-changed(); }
+            change-pin(a, b, c) => { root.change-pin(a, b, c); }
+        }
+    }
+
+    // Edit / delete dialog.
+    if root.edit-id >= 0: Rectangle {
+        background: #00000080;
+        TouchArea { }
+        Rectangle {
+            width: min(parent.width - 32px, 380px);
+            height: dialog.preferred-height;
+            background: Palette.background;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: Palette.border;
+            dialog := VerticalLayout {
+                padding: 16px;
+                spacing: 10px;
+                SectionTitle { text: root.confirm-delete ? "Delete account?" : "Edit account"; }
+                if !root.confirm-delete: LineEdit {
+                    placeholder-text: "Service";
+                    text <=> root.edit-issuer;
+                }
+                if !root.confirm-delete: LineEdit {
+                    placeholder-text: "Account";
+                    text <=> root.edit-name;
+                }
+                if root.confirm-delete: Text {
+                    text: "\"" + root.edit-issuer + "\" will be removed from this PC. Make sure you can still sign in to it another way (e.g. this account is also on another device), or you may lose access.";
+                    wrap: word-wrap;
+                    font-size: 13px;
+                    color: Theme.danger;
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    if !root.confirm-delete: Button {
+                        text: "Delete…";
+                        clicked => { root.confirm-delete = true; }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    Button {
+                        text: "Cancel";
+                        clicked => {
+                            root.edit-id = -1;
+                            shortcuts.focus();
+                        }
+                    }
+                    if !root.confirm-delete: Button {
+                        text: "Save";
+                        primary: true;
+                        clicked => {
+                            root.rename-entry(root.edit-id, root.edit-issuer, root.edit-name);
+                            root.edit-id = -1;
+                            shortcuts.focus();
+                        }
+                    }
+                    if root.confirm-delete: Button {
+                        text: "Delete";
+                        primary: true;
+                        clicked => {
+                            root.delete-entry(root.edit-id);
+                            root.edit-id = -1;
+                            shortcuts.focus();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Backup password dialog.
+    if root.restore-dialog: Rectangle {
+        background: #00000080;
+        TouchArea { }
+        Rectangle {
+            width: min(parent.width - 32px, 380px);
+            height: restore-layout.preferred-height;
+            background: Palette.background;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: Palette.border;
+            restore-layout := VerticalLayout {
+                padding: 16px;
+                spacing: 10px;
+                SectionTitle { text: "Backup password"; }
+                Hint { text: "Enter the password that was used when the backup was created."; }
+                restore-pw := LineEdit {
+                    input-type: password;
+                    placeholder-text: "Password";
+                    init => { self.focus(); }
+                    accepted => {
+                        root.restore-backup-password(restore-pw.text);
+                        restore-pw.text = "";
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: end;
+                    Button {
+                        text: "Cancel";
+                        clicked => { root.cancel-restore(); }
+                    }
+                    Button {
+                        text: "Restore";
+                        primary: true;
+                        clicked => {
+                            root.restore-backup-password(restore-pw.text);
+                            restore-pw.text = "";
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if root.toast-visible: Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: parent.height - 72px;
+        width: min(toast-label.preferred-width + 36px, parent.width - 32px);
+        height: 40px;
+        border-radius: 20px;
+        background: #202020f0;
+        toast-label := Text {
+            text: root.toast-text;
+            color: white;
+            font-size: 13px;
+            horizontal-alignment: center;
+            overflow: elide;
+            width: parent.width - 24px;
+        }
+    }
+
+    if root.busy: Rectangle {
+        background: #00000070;
+        TouchArea { }
+        VerticalLayout {
+            alignment: center;
+            spacing: 12px;
+            HorizontalLayout {
+                alignment: center;
+                Spinner { indeterminate: true; width: 40px; height: 40px; }
+            }
+            Text {
+                text: root.busy-text;
+                color: white;
+                font-size: 14px;
+                horizontal-alignment: center;
+            }
+        }
+    }
+}
