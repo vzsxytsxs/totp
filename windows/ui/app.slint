@@ -433,7 +433,7 @@ component SetupPage inherits Rectangle {
         HorizontalLayout {
             alignment: center;
             VerticalLayout {
-                width: min(root.width - 48px, 400px);
+                width: 400px;
                 spacing: 12px;
                 HorizontalLayout { alignment: center; BrandMark { } }
                 Text {
@@ -472,6 +472,7 @@ component SetupPage inherits Rectangle {
 
 component LockPage inherits Rectangle {
     property <bool> show-reset: false;
+    public function focus-pin() { pin.focus(); }
     function submit() {
         App.unlock(pin.text);
         pin.text = "";
@@ -481,7 +482,7 @@ component LockPage inherits Rectangle {
         HorizontalLayout {
             alignment: center;
             VerticalLayout {
-                width: min(root.width - 48px, 380px);
+                width: 380px;
                 spacing: 12px;
                 HorizontalLayout { alignment: center; BrandMark { } }
                 Text {
@@ -510,7 +511,6 @@ component LockPage inherits Rectangle {
                     input-type: password;
                     placeholder-text: "PIN or password";
                     accepted => { root.submit(); }
-                    init => { self.focus(); }
                 }
                 if App.lock-error != "": ErrorText { text: App.lock-error; horizontal-alignment: center; }
                 Button {
@@ -1972,6 +1972,7 @@ export component AppWindow inherits Window {
     property <bool> free: unlocked && App.dialog == Dialog.none && !App.busy;
 
     public function focus-list() { if (main.visible) { main.focus-list(); } }
+    public function focus-pin() { if (lock-page.visible) { lock-page.focus-pin(); } }
 
     function open-add-code() {
         App.section = Section.codes;
@@ -2056,7 +2057,9 @@ export component AppWindow inherits Window {
     }
 
     if App.page == Page.setup: SetupPage { }
-    if App.page == Page.lock: LockPage { }
+    lock-page := LockPage {
+        visible: App.page == Page.lock;
+    }
     main := MainPage {
         visible: App.page == Page.main;
     }

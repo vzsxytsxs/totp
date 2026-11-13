@@ -35,6 +35,7 @@ mod codes;
 mod logins;
 mod session;
 mod transfer;
+mod window;
 
 pub const WINDOW_TITLE: &str = "Authenticator";
 pub const AUTO_LOCK_MINUTES: [u32; 5] = [1, 5, 15, 60, 0];
@@ -79,6 +80,9 @@ pub struct State {
     pub last_second: u64,
     pub last_activity: Instant,
     pub hwnd: isize,
+    /// The notification-area icon is running.
+    pub tray: bool,
+    pub window_visible: bool,
 }
 
 thread_local! {
@@ -140,6 +144,8 @@ pub fn run(start_hidden: bool) -> Result<(), slint::PlatformError> {
         last_second: 0,
         last_activity: Instant::now(),
         hwnd: 0,
+        tray: false,
+        window_visible: false,
         vault_path,
     };
     a.set_codes(ModelRc::from(state.code_rows.clone()));
@@ -158,8 +164,14 @@ pub fn run(start_hidden: bool) -> Result<(), slint::PlatformError> {
     codes::wire(&ui);
     logins::wire(&ui);
     transfer::wire(&ui);
+    window::wire(&ui);
 
     platform::refresh_autostart();
+    let tray = window::start_tray(&ui);
+    let has_vault = with_state(|s| {
+        s.tray = tray;
+        vault::exists(&s.vault_path)
+    });
 
     let ticker = Timer::default();
     let weak = ui.as_weak();
@@ -169,10 +181,11 @@ pub fn run(start_hidden: bool) -> Result<(), slint::PlatformError> {
         }
     });
 
-    if !start_hidden {
-        ui.show()?;
+    // Started with Windows: stay in the notification area until needed.
+    if !(start_hidden && tray && has_vault) {
+        window::show(&ui);
     }
-    slint::run_event_loop()?;
+    slint::run_event_loop_until_quit()?;
 
     try_with_state(|s| {
         clear_clipboard_if_ours(s);

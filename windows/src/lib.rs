@@ -11,6 +11,7 @@ pub mod otp;
 pub mod platform;
 pub mod prefs;
 pub mod qr;
+pub mod tray;
 pub mod vault;
 
 use otp::Account;

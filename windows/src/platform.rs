@@ -316,23 +316,42 @@ mod win {
         }
     }
 
-    /// Returns false (after focusing the running copy) if the app is already open.
-    pub fn acquire_single_instance(window_title: &str) -> bool {
+    /// Returns false if the app is already running; with `show_existing`,
+    /// the running copy is asked to show its window.
+    pub fn acquire_single_instance(window_title: &str, show_existing: bool) -> bool {
         let name = wide("Local\\Authenticator-single-instance-7f3c2a");
         // SAFETY: the mutex handle is intentionally leaked; it lives as long as the process.
         unsafe {
             let handle = CreateMutexW(null(), 0, name.as_ptr());
             if !handle.is_null() && GetLastError() == ERROR_ALREADY_EXISTS {
-                let title = wide(window_title);
-                let hwnd = FindWindowW(null(), title.as_ptr());
-                if !hwnd.is_null() {
-                    ShowWindow(hwnd, SW_RESTORE);
-                    SetForegroundWindow(hwnd);
+                if show_existing && !crate::tray::signal_running_instance() {
+                    // Older copy without a tray window: focus its window directly.
+                    let title = wide(window_title);
+                    let hwnd = FindWindowW(null(), title.as_ptr());
+                    if !hwnd.is_null() {
+                        ShowWindow(hwnd, SW_RESTORE);
+                        SetForegroundWindow(hwnd);
+                    }
                 }
                 return false;
             }
         }
         true
+    }
+
+    /// Brings our window in front of the others.
+    pub fn bring_to_front(hwnd: isize) {
+        if hwnd == 0 {
+            return;
+        }
+        // SAFETY: hwnd is our own top-level window.
+        unsafe {
+            let hwnd = hwnd as HWND;
+            if IsIconic(hwnd) != 0 {
+                ShowWindow(hwnd, SW_RESTORE);
+            }
+            SetForegroundWindow(hwnd);
+        }
     }
 }
 
@@ -364,9 +383,10 @@ mod fallback {
     pub fn idle_seconds() -> Option<u64> {
         None
     }
-    pub fn acquire_single_instance(_window_title: &str) -> bool {
+    pub fn acquire_single_instance(_window_title: &str, _show_existing: bool) -> bool {
         true
     }
+    pub fn bring_to_front(_hwnd: isize) {}
     pub fn open_external(target: &std::ffi::OsStr) -> bool {
         std::process::Command::new("xdg-open").arg(target).spawn().is_ok()
     }

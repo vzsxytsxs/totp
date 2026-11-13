@@ -53,6 +53,8 @@ pub fn lock_now(ui: &AppWindow, s: &mut State) {
     a.set_dialog(Dialog::None);
     a.set_lock_error("".into());
     a.set_page(Page::Lock);
+    authenticator::tray::set_locked(true);
+    ui.invoke_focus_pin();
 }
 
 pub fn open_vault(ui: &AppWindow, s: &mut State, vault: Vault) {
@@ -78,6 +80,7 @@ pub fn open_vault(ui: &AppWindow, s: &mut State, vault: Vault) {
     refresh_all(ui, s);
     a.set_lock_error("".into());
     a.set_page(Page::Main);
+    authenticator::tray::set_locked(false);
     ui.invoke_focus_list();
 }
 
@@ -194,14 +197,6 @@ pub fn wire(ui: &AppWindow) {
     });
 
     callback!(ui, on_lock, |ui| with_state(|s| lock_now(&ui, s)));
-
-    callback!(ui, on_quit, |_ui| {
-        let _ = slint::quit_event_loop();
-    });
-
-    callback!(ui, on_hide_window, |ui| {
-        ui.window().set_minimized(true);
-    });
 
     callback!(ui, on_search_changed, |ui, text| {
         with_state(|s| {
