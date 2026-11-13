@@ -51,7 +51,9 @@ impl std::fmt::Display for EnvelopeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             EnvelopeError::WrongFormat => write!(f, "This is not an Authenticator file"),
-            EnvelopeError::Unsupported(what) => write!(f, "Unsupported file ({what}). Update the app."),
+            EnvelopeError::Unsupported(what) => {
+                write!(f, "Unsupported file ({what}). Update the app.")
+            }
             EnvelopeError::WrongPassword => write!(f, "Wrong password"),
             EnvelopeError::Corrupt(why) => write!(f, "The file is damaged: {why}"),
         }
@@ -112,13 +114,7 @@ fn aad(format: &str, version: u32) -> Vec<u8> {
 }
 
 /// Encrypts `plaintext` with an already-derived key and returns the JSON envelope.
-pub fn seal(
-    format: &str,
-    key: &[u8; 32],
-    salt: &[u8],
-    params: &KdfParams,
-    plaintext: &[u8],
-) -> String {
+pub fn seal(format: &str, key: &[u8; 32], salt: &[u8], params: &KdfParams, plaintext: &[u8]) -> String {
     let nonce_bytes: [u8; NONCE_LEN] = random();
     let cipher = Aes256Gcm::new(key.into());
     let aad = aad(format, ENVELOPE_VERSION);
@@ -176,11 +172,8 @@ impl Envelope {
         if !(SALT_LEN..=64).contains(&salt.len()) {
             return Err(bad("salt"));
         }
-        let nonce: [u8; NONCE_LEN] = B64
-            .decode(&env.cipher.nonce)
-            .ok()
-            .and_then(|n| n.try_into().ok())
-            .ok_or_else(|| bad("nonce"))?;
+        let nonce: [u8; NONCE_LEN] =
+            B64.decode(&env.cipher.nonce).ok().and_then(|n| n.try_into().ok()).ok_or_else(|| bad("nonce"))?;
         let data = B64.decode(&env.data).map_err(|_| bad("data"))?;
         Ok(Envelope { salt, params, format: env.format, nonce, data })
     }

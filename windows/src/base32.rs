@@ -43,7 +43,9 @@ pub fn decode(input: &str) -> Result<Vec<u8>, String> {
         let value = match c.to_ascii_uppercase() {
             ch @ 'A'..='Z' => ch as u32 - 'A' as u32,
             ch @ '2'..='7' => ch as u32 - '2' as u32 + 26,
-            _ => return Err(format!("Invalid character '{c}' in secret (allowed: A-Z, 2-7)")),
+            _ => {
+                return Err(format!("Invalid character '{c}' in secret (allowed: A-Z, 2-7)"));
+            }
         };
         count += 1;
         buffer = ((buffer << 5) | value) & 0xFFFF;

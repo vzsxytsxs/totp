@@ -9,6 +9,7 @@ pub mod merge;
 pub mod migration;
 pub mod otp;
 pub mod platform;
+pub mod prefs;
 pub mod qr;
 pub mod vault;
 

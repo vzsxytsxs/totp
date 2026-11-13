@@ -144,9 +144,8 @@ impl Vault {
 
     pub fn unlock(path: &Path, pin: &str) -> Result<Vault, VaultError> {
         let raw = fs::read(path).map_err(|e| VaultError::Io(e.to_string()))?;
-        let body = raw
-            .strip_prefix(MAGIC.as_slice())
-            .ok_or_else(|| VaultError::Corrupt("unknown file header".into()))?;
+        let body =
+            raw.strip_prefix(MAGIC.as_slice()).ok_or_else(|| VaultError::Corrupt("unknown file header".into()))?;
         let envelope_json = platform::unprotect(body).map_err(VaultError::Corrupt)?;
         let envelope = Envelope::parse(FORMAT, &envelope_json).map_err(|e| VaultError::Corrupt(e.to_string()))?;
         let key = crypto::derive_key(pin, &envelope.salt, &envelope.params).map_err(VaultError::Corrupt)?;
@@ -154,13 +153,8 @@ impl Vault {
             EnvelopeError::WrongPassword => VaultError::WrongPin,
             other => VaultError::Corrupt(other.to_string()),
         })?;
-        let payload: PayloadIn =
-            serde_json::from_slice(&plaintext).map_err(|e| VaultError::Corrupt(e.to_string()))?;
-        let salt: [u8; SALT_LEN] = envelope
-            .salt
-            .as_slice()
-            .try_into()
-            .unwrap_or_else(|_| crypto::random()); // non-standard salt length: re-key on next save
+        let payload: PayloadIn = serde_json::from_slice(&plaintext).map_err(|e| VaultError::Corrupt(e.to_string()))?;
+        let salt: [u8; SALT_LEN] = envelope.salt.as_slice().try_into().unwrap_or_else(|_| crypto::random()); // non-standard salt length: re-key on next save
         let mut vault = Vault {
             path: path.to_path_buf(),
             key,
@@ -192,10 +186,12 @@ impl Vault {
 
     /// Checks a PIN against the unlocked vault (constant-time comparison).
     pub fn verify_pin(&self, pin: &str) -> bool {
-        match crypto::derive_key(pin, &self.salt, &self.params) {
-            Ok(candidate) => candidate.iter().zip(self.key.iter()).fold(0u8, |acc, (a, b)| acc | (a ^ b)) == 0,
-            Err(_) => false,
-        }
+        self.pin_check().verify(pin)
+    }
+
+    /// What is needed to check the PIN on another thread (it takes a moment).
+    pub fn pin_check(&self) -> PinCheck {
+        PinCheck { key: self.key.clone(), salt: self.salt, params: self.params }
     }
 
     /// Writes atomically (temp file + rename) and keeps the previous file as `.bak`.
@@ -209,8 +205,7 @@ impl Vault {
             logins: &self.logins,
             browsers: &self.browsers,
         };
-        serde_json::to_writer(&mut *plaintext, &payload)
-        .map_err(|e| VaultError::Corrupt(e.to_string()))?;
+        serde_json::to_writer(&mut *plaintext, &payload).map_err(|e| VaultError::Corrupt(e.to_string()))?;
         let envelope = crypto::seal(FORMAT, &self.key, &self.salt, &self.params, &plaintext);
         let protected = platform::protect(envelope.as_bytes()).map_err(VaultError::Io)?;
 
@@ -228,6 +223,21 @@ impl Vault {
             let _ = fs::copy(&self.path, self.path.with_extension("dat.bak"));
         }
         fs::rename(&tmp, &self.path).map_err(io)
+    }
+}
+
+pub struct PinCheck {
+    key: Zeroizing<[u8; 32]>,
+    salt: [u8; SALT_LEN],
+    params: KdfParams,
+}
+
+impl PinCheck {
+    pub fn verify(&self, pin: &str) -> bool {
+        match crypto::derive_key(pin, &self.salt, &self.params) {
+            Ok(candidate) => candidate.iter().zip(self.key.iter()).fold(0u8, |acc, (a, b)| acc | (a ^ b)) == 0,
+            Err(_) => false,
+        }
     }
 }
 

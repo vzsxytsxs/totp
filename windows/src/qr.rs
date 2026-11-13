@@ -67,8 +67,8 @@ pub struct QrBitmap {
 }
 
 pub fn encode(text: &str) -> Result<QrBitmap, String> {
-    let code = qrcode::QrCode::with_error_correction_level(text.as_bytes(), qrcode::EcLevel::M)
-        .map_err(|e| e.to_string())?;
+    let code =
+        qrcode::QrCode::with_error_correction_level(text.as_bytes(), qrcode::EcLevel::M).map_err(|e| e.to_string())?;
     let n = code.width();
     let colors = code.to_colors();
     let quiet = 4;

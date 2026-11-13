@@ -61,8 +61,7 @@ pub fn open(contents: &[u8], password: &str) -> Result<Contents, EnvelopeError> 
     let envelope = Envelope::parse(FORMAT, contents)?;
     let key = crypto::derive_key(password, &envelope.salt, &envelope.params).map_err(EnvelopeError::Corrupt)?;
     let plaintext = envelope.open(&key)?;
-    let payload: PayloadIn =
-        serde_json::from_slice(&plaintext).map_err(|e| EnvelopeError::Corrupt(e.to_string()))?;
+    let payload: PayloadIn = serde_json::from_slice(&plaintext).map_err(|e| EnvelopeError::Corrupt(e.to_string()))?;
     if payload.version != 1 {
         return Err(EnvelopeError::Unsupported(format!("payload version {}", payload.version)));
     }

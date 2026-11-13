@@ -137,10 +137,7 @@ impl Account {
 
     /// Same account (same secret and labels)? Used to skip duplicates on import.
     pub fn same_as(&self, other: &Account) -> bool {
-        self.secret == other.secret
-            && self.kind == other.kind
-            && self.issuer == other.issuer
-            && self.name == other.name
+        self.secret == other.secret && self.kind == other.kind && self.issuer == other.issuer && self.name == other.name
     }
 
     pub fn display_title(&self) -> String {
@@ -224,10 +221,7 @@ pub fn hotp(secret: &[u8], counter: u64, digits: u32, algorithm: Algorithm) -> S
 }
 
 pub fn now_unix() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
 /// Percent-decodes a URI component. `plus_is_space` applies to query values.
@@ -295,8 +289,7 @@ pub fn parse_otpauth(uri: &str) -> Result<Account, String> {
             "secret" => secret = Some(base32::decode(&value)?),
             "issuer" if !value.trim().is_empty() => issuer = value.trim().to_string(),
             "algorithm" => {
-                algorithm = Algorithm::parse(&value)
-                    .ok_or_else(|| format!("Unsupported algorithm '{value}'"))?
+                algorithm = Algorithm::parse(&value).ok_or_else(|| format!("Unsupported algorithm '{value}'"))?
             }
             "digits" => digits = value.trim().parse().map_err(|_| "Invalid digits value")?,
             "period" => period = value.trim().parse().map_err(|_| "Invalid period value")?,
@@ -354,10 +347,8 @@ mod tests {
 
     #[test]
     fn rfc4226_hotp() {
-        let expected = [
-            "755224", "287082", "359152", "969429", "338314", "254676", "287922", "162583", "399871",
-            "520489",
-        ];
+        let expected =
+            ["755224", "287082", "359152", "969429", "338314", "254676", "287922", "162583", "399871", "520489"];
         for (counter, code) in expected.iter().enumerate() {
             assert_eq!(hotp(SEED20, counter as u64, 6, Algorithm::Sha1), *code);
         }

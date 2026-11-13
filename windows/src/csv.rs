@@ -76,7 +76,9 @@ pub fn import(text: &str) -> Result<CsvImport, String> {
     let totp = column(header, &["totp", "login_totp", "otp", "otpauth"]);
     let kind = column(header, &["type"]);
     if password.is_none() || (username.is_none() && url.is_none()) {
-        return Err("This file does not look like a password export (no \"password\" and \"username\"/\"url\" columns)".into());
+        return Err(
+            "This file does not look like a password export (no \"password\" and \"username\"/\"url\" columns)".into(),
+        );
     }
 
     let mut result = CsvImport::default();
@@ -148,11 +150,7 @@ mod tests {
     #[test]
     fn rows_with_quotes_and_newlines() {
         let rows = parse_rows("\u{feff}a,b,c\r\n\"x, y\",\"say \"\"hi\"\"\",\"multi\nline\"\n\n1,,3");
-        assert_eq!(rows, vec![
-            vec!["a", "b", "c"],
-            vec!["x, y", "say \"hi\"", "multi\nline"],
-            vec!["1", "", "3"],
-        ]);
+        assert_eq!(rows, vec![vec!["a", "b", "c"], vec!["x, y", "say \"hi\"", "multi\nline"], vec!["1", "", "3"],]);
     }
 
     #[test]

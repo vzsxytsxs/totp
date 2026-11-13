@@ -86,6 +86,18 @@ impl Login {
     }
 }
 
+/// The address to open in the browser for a saved website, or `None` if it
+/// is not a web address. "github.com" becomes "https://github.com".
+pub fn launch_url(url: &str) -> Option<String> {
+    let url = url.trim();
+    let site = Site::parse(url)?;
+    match site.scheme.as_str() {
+        "http" | "https" => Some(url.to_string()),
+        "" if !url.contains("://") => Some(format!("https://{url}")),
+        _ => None,
+    }
+}
+
 /// Scheme, host and port of a URL, parsed leniently ("github.com" works too).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Site {
@@ -194,7 +206,14 @@ pub struct GeneratorOptions {
 
 impl Default for GeneratorOptions {
     fn default() -> Self {
-        GeneratorOptions { length: 20, lowercase: true, uppercase: true, digits: true, symbols: true, avoid_similar: false }
+        GeneratorOptions {
+            length: 20,
+            lowercase: true,
+            uppercase: true,
+            digits: true,
+            symbols: true,
+            avoid_similar: false,
+        }
     }
 }
 
@@ -313,9 +332,22 @@ mod tests {
         l.title = "  Work GitHub ".into();
         assert_eq!(l.display_title(), "Work GitHub");
         assert!(Login::default().validate().is_err());
-        let json = serde_json::to_string(&Login { title: "x".into(), password: Password::new("p"), ..Default::default() }).unwrap();
+        let json =
+            serde_json::to_string(&Login { title: "x".into(), password: Password::new("p"), ..Default::default() })
+                .unwrap();
         assert!(json.contains("\"password\":\"p\"") && !json.contains("\"otp\""));
         assert!(!format!("{:?}", Password::new("hunter2")).contains("hunter2"));
+    }
+
+    #[test]
+    fn launch_urls() {
+        assert_eq!(launch_url(" github.com/login ").as_deref(), Some("https://github.com/login"));
+        assert_eq!(launch_url("http://192.168.0.1").as_deref(), Some("http://192.168.0.1"));
+        assert_eq!(launch_url("HTTPS://Example.com").as_deref(), Some("HTTPS://Example.com"));
+        assert_eq!(launch_url("javascript:alert(1)"), None);
+        assert_eq!(launch_url("file:///C:/Windows"), None);
+        assert_eq!(launch_url("ftp://example.com"), None);
+        assert_eq!(launch_url(""), None);
     }
 
     #[test]
@@ -332,7 +364,8 @@ mod tests {
         }
         let digits_only = GeneratorOptions { length: 6, lowercase: false, uppercase: false, symbols: false, ..opts };
         assert!(generate_password(&digits_only).as_str().chars().all(|c| c.is_ascii_digit()));
-        let none = GeneratorOptions { lowercase: false, uppercase: false, digits: false, symbols: false, length: 1, ..opts };
+        let none =
+            GeneratorOptions { lowercase: false, uppercase: false, digits: false, symbols: false, length: 1, ..opts };
         assert_eq!(generate_password(&none).as_str().len(), GENERATOR_MIN_LEN as usize);
         let similar = GeneratorOptions { avoid_similar: true, length: 128, ..opts };
         assert!(!generate_password(&similar).as_str().contains(['I', 'l', '1', 'O', '0', 'o']));

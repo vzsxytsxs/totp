@@ -100,9 +100,8 @@ pub fn merge(
     let mut id_map: HashMap<String, String> = HashMap::new();
 
     for mut incoming in new_accounts {
-        let existing = accounts
-            .iter_mut()
-            .find(|a| (!incoming.id.is_empty() && a.id == incoming.id) || a.same_as(&incoming));
+        let existing =
+            accounts.iter_mut().find(|a| (!incoming.id.is_empty() && a.id == incoming.id) || a.same_as(&incoming));
         if let Some(existing) = existing {
             if existing.kind == OtpKind::Hotp && incoming.kind == OtpKind::Hotp {
                 existing.counter = existing.counter.max(incoming.counter);
@@ -206,7 +205,13 @@ mod tests {
         let report = merge(&mut accounts, &mut logins, incoming_accounts, incoming_logins);
         assert_eq!(
             report,
-            MergeReport { accounts_added: 1, accounts_skipped: 1, logins_added: 2, logins_updated: 1, logins_skipped: 1 }
+            MergeReport {
+                accounts_added: 1,
+                accounts_skipped: 1,
+                logins_added: 2,
+                logins_updated: 1,
+                logins_skipped: 1
+            }
         );
         assert_eq!(accounts.len(), 2);
         assert_eq!(accounts[1].id, "phone-a2");
@@ -230,10 +235,18 @@ mod tests {
         merge(&mut accounts, &mut logins, vec![acc("otpauth://hotp/T?secret=GEZDGNBVGY3TQOJQ&counter=9", "")], vec![]);
         assert_eq!(accounts[0].counter, 9);
         // Same id = same account, even if it was renamed on the other device.
-        let r = merge(&mut accounts, &mut logins, vec![acc("otpauth://hotp/Renamed?secret=GEZDGNBVGY3TQOJQ&counter=1", "h")], vec![]);
+        let r = merge(
+            &mut accounts,
+            &mut logins,
+            vec![acc("otpauth://hotp/Renamed?secret=GEZDGNBVGY3TQOJQ&counter=1", "h")],
+            vec![],
+        );
         assert_eq!((r.accounts_skipped, accounts.len(), accounts[0].name.as_str()), (1, 1, "T"));
 
-        let mut accounts = vec![acc("otpauth://totp/A?secret=JBSWY3DPEHPK3PXP", ""), acc("otpauth://totp/B?secret=GEZDGNBVGY3TQOJQ", "")];
+        let mut accounts = vec![
+            acc("otpauth://totp/A?secret=JBSWY3DPEHPK3PXP", ""),
+            acc("otpauth://totp/B?secret=GEZDGNBVGY3TQOJQ", ""),
+        ];
         let mut logins = vec![login("", "a.com", "u", "p", 0, "nope")];
         assert!(ensure_ids(&mut accounts, &mut logins));
         assert!(accounts.iter().all(|a| a.id.len() == 32) && accounts[0].id != accounts[1].id);
