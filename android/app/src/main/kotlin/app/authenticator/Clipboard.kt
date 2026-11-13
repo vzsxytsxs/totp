@@ -9,9 +9,9 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PersistableBundle
 
-/** Copies codes marked as sensitive and removes them again after a while. */
+/** Copies codes and passwords marked as sensitive and removes them again after a while. */
 object Clipboard {
-    private const val LABEL = "Authenticator code"
+    private const val LABEL = "Authenticator"
     const val CLEAR_AFTER_MS = 30_000L
 
     private val handler = Handler(Looper.getMainLooper())

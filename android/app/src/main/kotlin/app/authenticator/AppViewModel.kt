@@ -14,8 +14,12 @@ import androidx.lifecycle.viewModelScope
 import app.authenticator.core.Account
 import app.authenticator.core.Backup
 import app.authenticator.core.ImportParser
+import app.authenticator.core.Login
+import app.authenticator.core.Merge
 import app.authenticator.core.Migration
+import app.authenticator.core.Otp
 import app.authenticator.core.OtpException
+import app.authenticator.core.OtpType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -25,14 +29,27 @@ import java.security.SecureRandom
 
 data class Entry(val id: Long, val account: Account)
 
+enum class HomeTab { Codes, Passwords }
+
 sealed interface Screen {
     data object Home : Screen
     data object Scanner : Screen
     data object Manual : Screen
     data object Export : Screen
-    data class ExportQr(val uris: List<String>, val note: String) : Screen
+
+    /** QR codes to scan; [single] is one account's otpauth:// code (shown from the list). */
+    data class ExportQr(val uris: List<String>, val note: String, val single: Boolean = false) : Screen
+
+    /** What goes into an export (ids of accounts and logins). */
+    data object ExportChoose : Screen
     data object Settings : Screen
+
+    /** Add ([id] null) or view and edit a saved login. */
+    data class LoginEdit(val id: String?) : Screen
 }
+
+/** Ids of the accounts and logins chosen for an export. */
+data class ExportSelection(val accounts: Set<String>, val logins: Set<String>)
 
 sealed interface ScanOutcome {
     val message: String
@@ -63,7 +80,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var entries by mutableStateOf<List<Entry>>(emptyList())
         private set
+    var logins by mutableStateOf<List<Login>>(emptyList())
+        private set
     var screen by mutableStateOf<Screen>(Screen.Home)
+    var homeTab by mutableStateOf(HomeTab.Codes)
+    var exportSelection by mutableStateOf(ExportSelection(emptySet(), emptySet()))
     var busy by mutableStateOf<String?>(null)
         private set
     var scanStatus by mutableStateOf<String?>(null)
@@ -110,6 +131,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         locked = true
         loaded = false
         entries = emptyList()
+        logins = emptyList()
+        exportSelection = ExportSelection(emptySet(), emptySet())
         screen = Screen.Home
         pendingBackup = null
         pendingExportPassword = null
@@ -135,10 +158,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun load() {
         viewModelScope.launch {
             try {
-                val accounts = withContext(ioSerial) { store.load() }
-                entries = accounts.map { Entry(nextId++, it) }
+                val data = withContext(ioSerial) { store.load() }
+                // Accounts saved before 2.0 have no id; logins link to accounts by id.
+                val fixed = Merge.ensureIds(data.accounts, data.logins)
+                entries = fixed.accounts.map { Entry(nextId++, it) }
+                logins = fixed.logins
                 vaultError = null
                 loaded = true
+                if (fixed.changed) save()
                 pendingLink?.let {
                     pendingLink = null
                     openLink(it)
@@ -154,6 +181,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             withContext(ioSerial) { store.destroy() }
             entries = emptyList()
+            logins = emptyList()
             vaultError = null
             loaded = true
         }
@@ -168,9 +196,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun save() {
         val snapshot = entries.map { it.account }
+        val loginSnapshot = logins
         viewModelScope.launch {
             try {
-                withContext(ioSerial) { store.save(snapshot) }
+                withContext(ioSerial) { store.save(snapshot, loginSnapshot) }
             } catch (e: Exception) {
                 message("Could not save: ${e.message}")
             }
@@ -187,7 +216,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             if (current.any { it.account.sameAs(account) }) {
                 duplicates++
             } else {
-                current.add(Entry(nextId++, account))
+                val id = if (account.id.isEmpty() || current.any { it.account.id == account.id }) Merge.newId() else account.id
+                current.add(Entry(nextId++, account.copy(id = id)))
                 added++
             }
         }
@@ -212,9 +242,47 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun delete(id: Long) {
+        val accountId = entries.firstOrNull { it.id == id }?.account?.id ?: return
         entries = entries.filterNot { it.id == id }
+        // Logins that used this 2FA code keep their password but lose the link.
+        logins = logins.map { if (it.otp == accountId) it.copy(otp = "") else it }
         save()
         message("Account deleted.")
+    }
+
+    fun account(id: String): Account? = if (id.isEmpty()) null else entries.firstOrNull { it.account.id == id }?.account
+
+    // ---------------------------------------------------------------- logins
+
+    fun login(id: String): Login? = logins.firstOrNull { it.id == id }
+
+    /** Adds or updates a login; returns an error to show, or null when it was saved. */
+    fun saveLogin(edited: Login): String? {
+        if (!loaded) return "Unlock the app first."
+        val now = Otp.nowSeconds()
+        var login = edited.copy(
+            title = edited.title.trim(),
+            username = edited.username.trim(),
+            url = edited.url.trim(),
+            otp = if (account(edited.otp) != null) edited.otp else "",
+        )
+        login.validationError()?.let { return it }
+        val existing = logins.indexOfFirst { it.id == login.id }
+        if (existing >= 0) {
+            login = login.copy(created = logins[existing].created, modified = now)
+            logins = logins.toMutableList().also { it[existing] = login }
+        } else {
+            login = login.copy(id = Merge.newId(), created = now, modified = now)
+            logins = logins + login
+        }
+        save()
+        return null
+    }
+
+    fun deleteLogin(id: String) {
+        logins = logins.filterNot { it.id == id }
+        save()
+        message("Password deleted.")
     }
 
     fun nextHotp(id: Long) {
@@ -310,8 +378,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             busy = null
             result.onSuccess { restored ->
                 pendingBackup = null
-                val skipped = if (restored.invalidEntries > 0) listOf("${plural(restored.invalidEntries, "entry")} that could not be read.") else emptyList()
-                message(if (restored.accounts.isEmpty() && skipped.isEmpty()) "The backup is empty." else addAccounts(restored.accounts, skipped))
+                if (!loaded) return@onSuccess
+                var text = if (restored.accounts.isEmpty() && restored.logins.isEmpty()) {
+                    "The backup is empty."
+                } else {
+                    mergeIn(restored.accounts, restored.logins)
+                }
+                if (restored.invalidEntries > 0) text += "\nSkipped ${plural(restored.invalidEntries, "entry")} that could not be read."
+                message(text)
                 screen = Screen.Home
             }.onFailure { e ->
                 if (e is Backup.BackupException && e.failure == Backup.Failure.WRONG_PASSWORD) {
@@ -324,10 +398,44 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Adds accounts and logins from a backup (same rules as the Windows app). */
+    private fun mergeIn(newAccounts: List<Account>, newLogins: List<Login>): String {
+        val merged = Merge.merge(entries.map { it.account }, logins, newAccounts, newLogins)
+        val known = entries.associateBy { it.account.id }
+        entries = merged.accounts.map { account -> known[account.id]?.copy(account = account) ?: Entry(nextId++, account) }
+        logins = merged.logins
+        save()
+        return merged.report.summary()
+    }
+
     // ---------------------------------------------------------------- export
 
+    /** Opens the export screen with everything chosen. */
+    fun openExport() {
+        exportSelection = ExportSelection(entries.map { it.account.id }.toSet(), logins.map { it.id }.toSet())
+        screen = Screen.Export
+    }
+
+    private fun selectedAccounts() = entries.map { it.account }.filter { it.id in exportSelection.accounts }
+
+    private fun selectedLogins() = logins.filter { it.id in exportSelection.logins }
+
+    /** One account as a standard otpauth:// QR code, which any authenticator app can scan. */
+    fun showAccountQr(entry: Entry) {
+        val account = entries.firstOrNull { it.id == entry.id }?.account ?: return
+        var note = account.displayTitle
+        if (!Migration.exportable(account) || account.type == OtpType.HOTP) {
+            note += " · uses settings some apps (like Google Authenticator) may not support"
+        }
+        screen = Screen.ExportQr(listOf(account.toOtpAuth()), note, single = true)
+    }
+
     fun showExportQr() {
-        val all = entries.map { it.account }
+        val all = selectedAccounts()
+        if (all.isEmpty()) {
+            message("Choose at least one 2FA code to export.")
+            return
+        }
         val exportable = all.filter(Migration::exportable)
         if (exportable.isEmpty()) {
             message("Google Authenticator only supports 30-second codes with 6 or 8 digits. Use an encrypted backup file instead.")
@@ -344,13 +452,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun writeBackup(uri: Uri) {
         val password = pendingExportPassword ?: return
         pendingExportPassword = null
-        val accounts = entries.map { it.account }
+        val accounts = selectedAccounts()
+        val chosenLogins = selectedLogins()
         val resolver = getApplication<Application>().contentResolver
         busy = "Encrypting backup…"
         viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {
                 runCatching {
-                    val contents = Backup.create(accounts, password)
+                    val contents = Backup.create(accounts, password, logins = chosenLogins)
                     withContext(Dispatchers.IO) {
                         resolver.openOutputStream(uri, "wt")?.use { it.write(contents.toByteArray(Charsets.UTF_8)) }
                             ?: error("Could not open the file for writing.")
@@ -358,7 +467,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
             busy = null
-            result.onSuccess { message("Backup of ${plural(accounts.size, "account")} saved.") }
+            result.onSuccess {
+                val what = buildList {
+                    if (accounts.isNotEmpty()) add(plural(accounts.size, "2FA code"))
+                    if (chosenLogins.isNotEmpty()) add(plural(chosenLogins.size, "password"))
+                }
+                message("Backup of ${what.joinToString(" and ")} saved.")
+            }
                 .onFailure { message("Could not save the backup: ${it.message}") }
         }
     }

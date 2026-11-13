@@ -21,6 +21,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -31,10 +32,13 @@ import app.authenticator.ui.AuthenticatorTheme
 import app.authenticator.ui.BackupPasswordDialog
 import app.authenticator.ui.BusyOverlay
 import app.authenticator.ui.EditDialog
+import app.authenticator.ui.ExportChooseScreen
 import app.authenticator.ui.ExportQrScreen
 import app.authenticator.ui.ExportScreen
 import app.authenticator.ui.HomeScreen
 import app.authenticator.ui.LockScreen
+import app.authenticator.ui.LoginField
+import app.authenticator.ui.LoginScreen
 import app.authenticator.ui.ManualEntryScreen
 import app.authenticator.ui.ScannerScreen
 import app.authenticator.ui.SettingsScreen
@@ -162,6 +166,21 @@ class MainActivity : FragmentActivity() {
         pickImageLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
+    private fun copy(text: String, what: String) {
+        if (text.isEmpty()) return
+        Clipboard.copy(this, text, vm.settings.clearClipboard)
+        if (!Clipboard.systemShowsConfirmation) vm.message("$what copied.")
+    }
+
+    private fun copyFromLogin(login: app.authenticator.core.Login, field: LoginField) {
+        val text = when (field) {
+            LoginField.Username -> login.username
+            LoginField.Password -> login.password
+            LoginField.Otp -> vm.account(login.otp)?.codeAt(Otp.nowSeconds()) ?: ""
+        }
+        copy(text, field.label)
+    }
+
     private fun openBackupFile() {
         vm.suppressLock = true
         openBackupLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain", "*/*"))
@@ -194,6 +213,10 @@ class MainActivity : FragmentActivity() {
                 onSave = { issuer, name -> vm.rename(entry.id, issuer, name); editing = null },
                 onDelete = { vm.delete(entry.id); editing = null },
                 onMove = { vm.move(entry.id, it) },
+                onShowQr = {
+                    editing = null
+                    authenticate("Show QR code") { vm.showAccountQr(entry) }
+                },
                 onDismiss = { editing = null },
             )
         }
@@ -208,24 +231,34 @@ class MainActivity : FragmentActivity() {
     private fun Screens(snackbar: SnackbarHostState, onEdit: (Entry) -> Unit) {
         val goHome = { vm.screen = Screen.Home }
         if (vm.screen != Screen.Home) {
-            BackHandler { vm.screen = if (vm.screen is Screen.ExportQr) Screen.Export else Screen.Home }
+            BackHandler {
+                vm.screen = when (val current = vm.screen) {
+                    is Screen.ExportQr -> if (current.single) Screen.Home else Screen.Export
+                    Screen.ExportChoose -> Screen.Export
+                    else -> Screen.Home
+                }
+            }
         }
         when (val screen = vm.screen) {
             Screen.Home -> HomeScreen(
+                tab = vm.homeTab,
+                onTab = { vm.homeTab = it },
                 entries = vm.entries,
+                logins = vm.logins,
+                linked = { vm.account(it.otp) },
                 lockAvailable = vm.lockActive,
                 snackbar = snackbar,
-                onCopy = { entry ->
-                    Clipboard.copy(this@MainActivity, entry.account.codeAt(Otp.nowSeconds()), vm.settings.clearClipboard)
-                    if (!Clipboard.systemShowsConfirmation) vm.message("Code copied.")
-                },
+                onCopy = { entry -> copy(entry.account.codeAt(Otp.nowSeconds()), "Code") },
                 onNextHotp = { vm.nextHotp(it.id) },
                 onEdit = onEdit,
+                onOpenLogin = { vm.screen = Screen.LoginEdit(it.id) },
+                onAddLogin = { vm.screen = Screen.LoginEdit(null) },
+                onCopyLogin = ::copyFromLogin,
                 onScan = ::openScanner,
                 onPickImage = ::pickImage,
                 onManual = { vm.screen = Screen.Manual },
                 onRestore = ::openBackupFile,
-                onExport = { vm.screen = Screen.Export },
+                onExport = vm::openExport,
                 onSettings = { vm.screen = Screen.Settings },
                 onLock = vm::lock,
             )
@@ -259,8 +292,12 @@ class MainActivity : FragmentActivity() {
                 onBack = goHome,
             )
             Screen.Export -> ExportScreen(
-                count = vm.entries.size,
+                accounts = vm.exportSelection.accounts.size,
+                accountsTotal = vm.entries.size,
+                logins = vm.exportSelection.logins.size,
+                loginsTotal = vm.logins.size,
                 snackbar = snackbar,
+                onChoose = { vm.screen = Screen.ExportChoose },
                 onShowQr = { authenticate("Show export codes") { vm.showExportQr() } },
                 onSaveBackup = { password ->
                     authenticate("Create backup") {
@@ -271,7 +308,46 @@ class MainActivity : FragmentActivity() {
                 },
                 onBack = goHome,
             )
-            is Screen.ExportQr -> ExportQrScreen(screen.uris, screen.note, onDone = { vm.screen = Screen.Export })
+            Screen.ExportChoose -> ExportChooseScreen(
+                entries = vm.entries,
+                logins = vm.logins,
+                selection = vm.exportSelection,
+                onChange = { vm.exportSelection = it },
+                onDone = { vm.screen = Screen.Export },
+            )
+            is Screen.ExportQr -> ExportQrScreen(
+                screen.uris,
+                screen.note,
+                single = screen.single,
+                onDone = { vm.screen = if (screen.single) Screen.Home else Screen.Export },
+            )
+            is Screen.LoginEdit -> key(screen.id) {
+                val login = screen.id?.let(vm::login)
+                if (screen.id != null && login == null) {
+                    // Deleted (or the vault was locked): nothing to show.
+                    LaunchedEffect(Unit) { vm.screen = Screen.Home }
+                } else {
+                    LoginScreen(
+                        login = login,
+                        entries = vm.entries,
+                        snackbar = snackbar,
+                        onSave = { edited ->
+                            vm.saveLogin(edited).also { error ->
+                                if (error == null) {
+                                    vm.screen = Screen.Home
+                                    vm.message("Password saved.")
+                                }
+                            }
+                        },
+                        onDelete = {
+                            vm.screen = Screen.Home
+                            screen.id?.let(vm::deleteLogin)
+                        },
+                        onCopy = { text, field -> copy(text, field.label) },
+                        onBack = { vm.screen = Screen.Home },
+                    )
+                }
+            }
             Screen.Settings -> SettingsScreen(
                 settings = vm.settings,
                 lockAvailable = vm.canAuthenticate(),

@@ -35,6 +35,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -64,6 +66,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.authenticator.Entry
+import app.authenticator.HomeTab
+import app.authenticator.core.Account
+import app.authenticator.core.Login
 import app.authenticator.core.Otp
 import app.authenticator.core.OtpType
 import kotlinx.coroutines.delay
@@ -77,12 +82,19 @@ fun formatCode(code: String): String = when (code.length) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    tab: HomeTab,
+    onTab: (HomeTab) -> Unit,
     entries: List<Entry>,
+    logins: List<Login>,
+    linked: (Login) -> Account?,
     lockAvailable: Boolean,
     snackbar: SnackbarHostState,
     onCopy: (Entry) -> Unit,
     onNextHotp: (Entry) -> Unit,
     onEdit: (Entry) -> Unit,
+    onOpenLogin: (Login) -> Unit,
+    onAddLogin: () -> Unit,
+    onCopyLogin: (Login, LoginField) -> Unit,
     onScan: () -> Unit,
     onPickImage: () -> Unit,
     onManual: () -> Unit,
@@ -105,9 +117,17 @@ fun HomeScreen(
         }
     }
 
-    val visible = if (query.isBlank()) entries else entries.filter {
-        it.account.issuer.contains(query.trim(), ignoreCase = true) || it.account.name.contains(query.trim(), ignoreCase = true)
+    val q = query.trim()
+    val visible = if (q.isEmpty()) entries else entries.filter {
+        it.account.issuer.contains(q, ignoreCase = true) || it.account.name.contains(q, ignoreCase = true)
     }
+    val sortedLogins = remember(logins) { logins.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.displayTitle }) }
+    val visibleLogins = if (q.isEmpty()) sortedLogins else sortedLogins.filter {
+        it.displayTitle.contains(q, ignoreCase = true) || it.username.contains(q, ignoreCase = true) ||
+            it.url.contains(q, ignoreCase = true) || it.notes.contains(q, ignoreCase = true)
+    }
+    val passwords = tab == HomeTab.Passwords
+    val hasItems = if (passwords) logins.isNotEmpty() else entries.isNotEmpty()
 
     Scaffold(
         topBar = {
@@ -118,7 +138,7 @@ fun HomeScreen(
                         TextField(
                             value = query,
                             onValueChange = { query = it },
-                            placeholder = { Text("Search") },
+                            placeholder = { Text(if (passwords) "Search passwords" else "Search codes") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                             colors = TextFieldDefaults.colors(
@@ -139,9 +159,9 @@ fun HomeScreen(
                 )
             } else {
                 TopAppBar(
-                    title = { Text("Authenticator") },
+                    title = { Text(if (passwords) "Passwords" else "Authenticator") },
                     actions = {
-                        if (entries.isNotEmpty()) {
+                        if (hasItems) {
                             IconButton(onClick = { searching = true }) { Icon(Icons.Default.Search, contentDescription = "Search") }
                         }
                         if (lockAvailable) {
@@ -160,11 +180,43 @@ fun HomeScreen(
             }
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { addSheet = true }) { Icon(Icons.Default.Add, contentDescription = "Add account") }
+            if (passwords) {
+                FloatingActionButton(onClick = onAddLogin) { Icon(Icons.Default.Add, contentDescription = "Add password") }
+            } else {
+                FloatingActionButton(onClick = { addSheet = true }) { Icon(Icons.Default.Add, contentDescription = "Add account") }
+            }
+        },
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    selected = !passwords,
+                    onClick = { if (passwords) { searching = false; query = ""; onTab(HomeTab.Codes) } },
+                    icon = { Icon(AppIcons.Shield, contentDescription = null) },
+                    label = { Text("2FA codes") },
+                )
+                NavigationBarItem(
+                    selected = passwords,
+                    onClick = { if (!passwords) { searching = false; query = ""; onTab(HomeTab.Passwords) } },
+                    icon = { Icon(AppIcons.Key, contentDescription = null) },
+                    label = { Text("Passwords") },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
+        val listPadding = PaddingValues(
+            top = padding.calculateTopPadding(),
+            bottom = padding.calculateBottomPadding() + 88.dp,
+        )
         when {
+            passwords && logins.isEmpty() -> PasswordsEmptyState(Modifier.padding(padding), onAdd = onAddLogin)
+            passwords && visibleLogins.isEmpty() -> Text(
+                "No passwords match your search.",
+                modifier = Modifier.padding(padding).padding(32.dp).fillMaxWidth(),
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            passwords -> PasswordList(visibleLogins, linked, listPadding, onOpen = onOpenLogin, onCopy = onCopyLogin)
             entries.isEmpty() -> EmptyState(Modifier.padding(padding), onAdd = { addSheet = true })
             visible.isEmpty() -> Text(
                 "No accounts match your search.",
@@ -174,10 +226,7 @@ fun HomeScreen(
             )
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    top = padding.calculateTopPadding(),
-                    bottom = padding.calculateBottomPadding() + 88.dp,
-                ),
+                contentPadding = listPadding,
             ) {
                 items(visible, key = { it.id }) { entry ->
                     EntryRow(entry, now, onCopy = { onCopy(entry) }, onNext = { onNextHotp(entry) }, onEdit = { onEdit(entry) })

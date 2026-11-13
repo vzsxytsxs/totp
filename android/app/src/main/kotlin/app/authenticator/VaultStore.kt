@@ -5,6 +5,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.AtomicFile
 import app.authenticator.core.Account
+import app.authenticator.core.Login
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -17,8 +18,11 @@ import javax.crypto.spec.GCMParameterSpec
 
 class VaultException(message: String) : Exception(message)
 
+/** Everything kept in the vault: 2FA accounts and saved website logins. */
+class VaultData(val accounts: List<Account>, val logins: List<Login>)
+
 /**
- * Accounts stored in the app's private files, encrypted with AES-256-GCM using
+ * Accounts and logins stored in the app's private files, encrypted with AES-256-GCM using
  * a key that lives in the Android Keystore (hardware-backed on most phones), so
  * the file is useless if copied off the device.
  */
@@ -29,8 +33,8 @@ class VaultStore(context: Context) {
     fun exists(): Boolean = path.exists()
 
     @Synchronized
-    fun load(): List<Account> {
-        if (!exists()) return emptyList()
+    fun load(): VaultData {
+        if (!exists()) return VaultData(emptyList(), emptyList())
         val bytes = file.readFully()
         val headerSize = MAGIC.size + IV_SIZE
         if (bytes.size < headerSize + 16 || !bytes.copyOfRange(0, MAGIC.size).contentEquals(MAGIC)) {
@@ -47,18 +51,27 @@ class VaultStore(context: Context) {
             throw VaultException("The stored data could not be decrypted (${e.javaClass.simpleName}).")
         }
         try {
-            val entries = JSONObject(String(plaintext, Charsets.UTF_8)).getJSONArray("entries")
-            return (0 until entries.length()).map { Account.fromJson(entries.getJSONObject(it)) }
+            val json = JSONObject(String(plaintext, Charsets.UTF_8))
+            val entries = json.getJSONArray("entries")
+            val logins = json.optJSONArray("logins") ?: JSONArray()
+            return VaultData(
+                accounts = (0 until entries.length()).map { Account.fromJson(entries.getJSONObject(it)) },
+                logins = (0 until logins.length()).map { Login.fromJson(logins.getJSONObject(it)) },
+            )
         } finally {
             plaintext.fill(0)
         }
     }
 
     @Synchronized
-    fun save(accounts: List<Account>) {
+    fun save(accounts: List<Account>, logins: List<Login>) {
         val entries = JSONArray()
         accounts.forEach { entries.put(it.toJson()) }
-        val plaintext = JSONObject().put("version", 1).put("entries", entries).toString().toByteArray(Charsets.UTF_8)
+        val loginArray = JSONArray()
+        logins.forEach { loginArray.put(it.toJson()) }
+        // Older versions read only "entries" and ignore the rest.
+        val plaintext = JSONObject().put("version", 1).put("entries", entries).put("logins", loginArray)
+            .toString().toByteArray(Charsets.UTF_8)
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, key(create = true))
         cipher.updateAAD(AAD)
