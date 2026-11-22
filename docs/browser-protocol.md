@@ -30,7 +30,7 @@ message gets exactly one answer, in order.
 
 | `type` | Fields | Answer |
 | --- | --- | --- |
-| `ping` | – | Answered by the host itself: `{"type":"pong","version":"2.0.0","protocol":1}`. |
+| `ping` | – | Answered by the host itself: `{"type":"pong","version":"2.0.1","protocol":1}`. |
 | `pair` | `client`, `name`, `key` | `{"type":"paired"}` once the user clicks **Allow** in the app, which shows the same code as the extension. |
 | `request` | `client`, `nonce`, `data`, `wait` | `{"type":"response","nonce":…,"data":…}` (encrypted). |
 

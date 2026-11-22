@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Authenticator",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Fills in the logins and 2FA codes saved in the Authenticator app on this PC. Works offline.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtrI0XW8NGboetUFS+z4CGoY2XiznTdfiwozJln9qd6oZY4L835yy0igxmC1WmecJvgx9q1dEWICANDYdO5vmEgumvrz1AmZBSPXjkwt1ukk3nGbW24n7XEqkZwkzVeYnBs8xxUTx4bv23c8IQMMDlVzDLY6d6dABvAflRhaHZ/xq4+Rcj8CiSOhlrNuM3S6OPFqNcSEpd5VCHAaj6zcHNh1si1csFSEQDF4ot/lvFPmWNkrRlUzsKW40kzcFiIlSHt6prWCZuLVouNM03XaCntLQUPoocycwtKujuEiZNeq+ZP0uT8utOiQ/+24wn+HOtAib/PysWPVdMFjc2BdUjwIDAQAB",
   "minimum_chrome_version": "116",
