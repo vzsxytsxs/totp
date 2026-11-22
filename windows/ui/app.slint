@@ -414,7 +414,9 @@ component BrandMark inherits Rectangle {
     width: size;
     height: size;
     border-radius: size / 4;
-    background: #2563eb;
+    background: #000000;
+    border-width: 1px;
+    border-color: Palette.color-scheme == ColorScheme.dark ? #ffffff59 : #00000000;
     Path {
         commands: Icons.shield;
         fill: white;

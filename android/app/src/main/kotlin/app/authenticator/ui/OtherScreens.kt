@@ -4,6 +4,7 @@ import android.app.Activity
 import android.view.WindowManager
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -86,7 +87,10 @@ private fun LockContent(modifier: Modifier, onUnlock: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
-            Modifier.size(80.dp).background(Color(0xFF2563EB), RoundedCornerShape(22.dp)),
+            Modifier
+                .size(80.dp)
+                .background(Color.Black, RoundedCornerShape(22.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(22.dp)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(AppIcons.Shield, contentDescription = null, tint = Color.White, modifier = Modifier.size(48.dp))
